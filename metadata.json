@@ -1,0 +1,6 @@
+{
+  "name": "FarmDirect",
+  "description": "Direct farm-to-buyer platform with transparent pricing, demand forecasting, and optimized cold-chain logistics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
