@@ -45,5 +45,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FarmDirect requires your location to detect farm clusters, calculate distance to buyers, and optimize cold-chain logistics.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FarmDirect uses your camera to capture crop photos for AI-powered quality assessment and freshness grading.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FarmDirect allows you to upload photos of your harvest from your photo library.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FarmDirect saves batch inspection reports and receipts to your photo library.</string>
 </dict>
 </plist>

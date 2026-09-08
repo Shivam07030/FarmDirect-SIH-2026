@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCategory } from '../types';
-import { Plus, X, Phone, MapPin, Navigation, TrendingUp } from 'lucide-react';
+import { Plus, X, Phone, MapPin, Navigation, TrendingUp, Camera as CameraIcon } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
+import { captureProducePhoto } from '../services/cameraService';
 import { fetchMarketRates } from '../services/api';
 
 export const FarmerDashboard: React.FC = () => {
@@ -28,6 +29,9 @@ export const FarmerDashboard: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
 
   const isHindi = language === 'hi';
+
+  const [produceImage, setProduceImage] = useState<string>('');
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
 
   const [marketRates, setMarketRates] = useState<any[]>([]);
 
@@ -60,6 +64,20 @@ export const FarmerDashboard: React.FC = () => {
     }
   };
 
+  const handleCapturePhoto = async () => {
+    setIsCapturingPhoto(true);
+    try {
+      const photo = await captureProducePhoto();
+      if (photo.imageUrl) {
+        setProduceImage(photo.imageUrl);
+      }
+    } catch {
+      // User cancelled or camera dismissed
+    } finally {
+      setIsCapturingPhoto(false);
+    }
+  };
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addProduct({
@@ -73,7 +91,9 @@ export const FarmerDashboard: React.FC = () => {
       quality: 'Grade A (Premium)',
       farmerName: `${farmerName} (You)`,
       farmerPhone: '+91 98765 43210',
+      imageUrl: produceImage || undefined,
     });
+    setProduceImage('');
     setIsAddModalOpen(false);
   };
 
@@ -460,6 +480,38 @@ export const FarmerDashboard: React.FC = () => {
                   required
                   className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#0E3B2B]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  {isHindi ? 'फसल की तस्वीर (कैमरा / गैलरी)' : 'Crop Photo (Camera / Photos)'}
+                </label>
+                {produceImage ? (
+                  <div className="relative rounded-xl overflow-hidden border border-stone-200">
+                    <img src={produceImage} alt="Crop capture" className="w-full h-32 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setProduceImage('')}
+                      className="absolute top-2 right-2 bg-stone-900/70 hover:bg-stone-900 text-white p-1 rounded-full text-xs transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCapturePhoto}
+                    disabled={isCapturingPhoto}
+                    className="w-full py-2.5 px-3 border border-dashed border-stone-300 hover:border-emerald-600 rounded-xl text-xs font-medium text-stone-600 hover:text-emerald-800 flex items-center justify-center gap-2 bg-stone-50 transition-colors cursor-pointer"
+                  >
+                    <CameraIcon className="w-4 h-4 text-emerald-700" />
+                    <span>
+                      {isCapturingPhoto
+                        ? (isHindi ? 'कैमरा खुल रहा है...' : 'Opening camera...')
+                        : (isHindi ? 'कैमरा से फोटो खींचें / अपलोड करें' : 'Take Crop Photo with Camera')}
+                    </span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-1">
