@@ -69,6 +69,7 @@ interface AppContextType {
   isAuthenticated: boolean;
   setIsAuthenticated: (auth: boolean) => void;
   currentUser: UserProfile | null;
+  updateCurrentUserProfile: (updated: Partial<UserProfile>) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   loginAs: (role: UserRole, user?: any) => void;
@@ -114,6 +115,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_AUTH_KEY, String(auth));
   };
 
+  const updateCurrentUserProfile = (updatedProfile: Partial<UserProfile>) => {
+    setCurrentUser((prev) => {
+      if (!prev) return null;
+      const updated: UserProfile = {
+        ...prev,
+        ...updatedProfile,
+        farmerKyc: updatedProfile.farmerKyc ? { ...(prev.farmerKyc || {} as any), ...updatedProfile.farmerKyc } : prev.farmerKyc,
+        buyerKyc: updatedProfile.buyerKyc ? { ...(prev.buyerKyc || {} as any), ...updatedProfile.buyerKyc } : prev.buyerKyc,
+      };
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const loginAs = (selectedRole: UserRole, userData?: any) => {
     setRoleState(selectedRole);
     localStorage.setItem(STORAGE_ROLE_KEY, selectedRole);
@@ -124,66 +139,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       profile = {
         id: userData.id,
         phone: userData.phone || '',
-        name: userData.name || (selectedRole === 'FARMER' ? 'Rajesh Kumar' : selectedRole === 'BUYER' ? 'FreshBasket Supermarket' : 'Admin'),
+        name: userData.name || (selectedRole === 'FARMER' ? 'Farmer' : selectedRole === 'BUYER' ? 'Buyer' : 'Admin'),
         role: selectedRole,
-        location: userData.location || (selectedRole === 'FARMER' ? 'Agra Farm Cluster' : 'Delhi NCR'),
+        location: userData.location || (selectedRole === 'FARMER' ? 'Farm Cluster' : 'Delhi NCR'),
         verificationStatus: userData.verificationStatus || 'VERIFIED',
         farmerKyc: selectedRole === 'FARMER' ? {
-          pmKisanId: userData.pmKisanId || 'UP-2024-889123',
-          khasraNo: userData.khasraNo || '142/2A, Agra Revenue Block',
-          landSizeAcres: userData.landSizeAcres || 3.5,
-          clusterLocation: userData.clusterLocation || 'Agra Farm Cluster',
-          verifiedAt: '2026-03-01',
+          pmKisanId: userData.pmKisanId || '',
+          khasraNo: userData.khasraNo || '',
+          landSizeAcres: userData.landSizeAcres ? Number(userData.landSizeAcres) : undefined,
+          clusterLocation: userData.clusterLocation || userData.location || 'Farm Cluster',
+          verifiedAt: userData.pmKisanId ? '2026-03-01' : undefined,
         } : undefined,
         buyerKyc: selectedRole === 'BUYER' ? {
-          gstin: userData.gstin || '07AAAAF1234A1Z5',
-          legalBusinessName: userData.businessLegalName || 'FreshBasket Retail Enterprises Pvt Ltd',
-          pan: userData.gstin ? userData.gstin.slice(2, 12) : 'AAAAF1234A',
-          state: 'Delhi (07)',
-          fssaiLicense: userData.fssaiLicense || '10019011004123',
+          gstin: userData.gstin || '',
+          legalBusinessName: userData.businessLegalName || userData.name || '',
+          pan: userData.gstin ? userData.gstin.slice(2, 12) : '',
+          state: userData.state || 'Delhi (07)',
+          fssaiLicense: userData.fssaiLicense || '',
           tradeType: 'RETAILER',
         } : undefined,
       };
     } else {
-      // Default verified profiles
       if (selectedRole === 'FARMER') {
         profile = {
           id: 'USER-001',
-          phone: '+91 98765 43210',
-          name: 'Rajesh Kumar',
+          phone: '',
+          name: 'Farmer',
           role: 'FARMER',
-          location: 'Agra Farm Cluster',
-          verificationStatus: 'VERIFIED',
+          location: 'Farm Cluster',
+          verificationStatus: 'PENDING',
           farmerKyc: {
-            pmKisanId: 'UP-2024-889123',
-            khasraNo: '142/2A, Agra Revenue Block',
-            landSizeAcres: 3.5,
-            clusterLocation: 'Agra Farm Cluster',
-            verifiedAt: '2026-03-01',
+            pmKisanId: '',
+            khasraNo: '',
+            landSizeAcres: undefined,
+            clusterLocation: 'Farm Cluster',
           },
         };
       } else if (selectedRole === 'BUYER') {
         profile = {
           id: 'USER-002',
-          phone: '+91 98112 00000',
-          name: 'FreshBasket Supermarket',
+          phone: '',
+          name: 'Wholesale Buyer',
           role: 'BUYER',
-          location: 'Delhi NCR Hub',
-          verificationStatus: 'VERIFIED',
+          location: 'Delhi Hub',
+          verificationStatus: 'PENDING',
           buyerKyc: {
-            gstin: '07AAAAF1234A1Z5',
-            legalBusinessName: 'FreshBasket Retail Enterprises Pvt Ltd',
-            pan: 'AAAAF1234A',
-            state: 'Delhi (07)',
-            fssaiLicense: '10019011004123',
+            gstin: '',
+            legalBusinessName: '',
+            pan: '',
+            state: '',
             tradeType: 'RETAILER',
           },
         };
       } else {
         profile = {
           id: 'USER-003',
-          phone: '+91 99999 00000',
-          name: 'FarmDirect Admin Ops',
+          phone: '',
+          name: 'FarmDirect Admin',
           role: 'ADMIN',
           location: 'HQ Central',
           verificationStatus: 'VERIFIED',
@@ -222,8 +234,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [showJudgeGuide, setShowJudgeGuide] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const farmerName = 'Rajesh Kumar';
-  const buyerName = 'FreshBasket Supermarket (Delhi)';
+  const farmerName = (currentUser?.role === 'FARMER' && currentUser?.name) ? currentUser.name : 'Rajesh Kumar';
+  const buyerName = (currentUser?.role === 'BUYER' && currentUser?.name) ? currentUser.name : 'FreshBasket Supermarket (Delhi)';
 
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -385,9 +397,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Farmer metrics (calculated for farmerName)
-  const farmerProducts = products.filter((p) => p.farmerName.toLowerCase().includes('rajesh'));
-  const farmerOrders = orders.filter((o) => o.farmerName.toLowerCase().includes('rajesh'));
+  // Farmer metrics (calculated for dynamic farmer or demo)
+  const currentFarmerToken = (farmerName || 'rajesh').toLowerCase().split(' ')[0];
+  const farmerProducts = products.filter((p) => p.farmerName.toLowerCase().includes(currentFarmerToken) || p.farmerName.toLowerCase().includes('rajesh'));
+  const farmerOrders = orders.filter((o) => o.farmerName.toLowerCase().includes(currentFarmerToken) || o.farmerName.toLowerCase().includes('rajesh'));
   
   const totalProduceListedKg = farmerProducts.reduce((acc, p) => acc + p.quantity, 0);
   const activeOrdersCount = farmerOrders.filter((o) => o.status !== 'Delivered').length;
@@ -426,6 +439,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setShowJudgeGuide,
         isAuthenticated,
         setIsAuthenticated,
+        currentUser,
+        updateCurrentUserProfile,
         activeTab,
         setActiveTab,
         loginAs,

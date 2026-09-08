@@ -25,26 +25,26 @@ export const AuthFlow: React.FC = () => {
   const [step, setStep] = useState<'select-role' | 'enter-phone' | 'enter-otp' | 'kyc-onboarding'>('select-role');
   const [selectedRole, setSelectedRole] = useState<UserRole>('FARMER');
   
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [otp, setOtp] = useState('2026');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
   const [otpSentMessage, setOtpSentMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Farmer KYC state
-  const [farmerName, setFarmerName] = useState('Rajesh Kumar');
-  const [pmKisanId, setPmKisanId] = useState('UP-2024-889123');
-  const [khasraNo, setKhasraNo] = useState('142/2A, Agra Revenue Block');
-  const [landSizeAcres, setLandSizeAcres] = useState('3.5');
-  const [gpsLocation, setGpsLocation] = useState('Agra Farm Cluster (27.1767° N, 78.0081° E)');
+  // Farmer KYC state - clean initial state (no hardcoded static values)
+  const [farmerName, setFarmerName] = useState('');
+  const [pmKisanId, setPmKisanId] = useState('');
+  const [khasraNo, setKhasraNo] = useState('');
+  const [landSizeAcres, setLandSizeAcres] = useState('');
+  const [gpsLocation, setGpsLocation] = useState('');
   const [gpsDetecting, setGpsDetecting] = useState(false);
   const [farmerVerified, setFarmerVerified] = useState(false);
   const [farmerVerifying, setFarmerVerifying] = useState(false);
 
-  // Buyer KYC state
-  const [buyerEntityName, setBuyerEntityName] = useState('FreshBasket Retail Enterprises Pvt Ltd');
-  const [gstin, setGstin] = useState('07AAAAF1234A1Z5');
-  const [fssaiLicense, setFssaiLicense] = useState('10019011004123');
+  // Buyer KYC state - clean initial state (no hardcoded static values)
+  const [buyerEntityName, setBuyerEntityName] = useState('');
+  const [gstin, setGstin] = useState('');
+  const [fssaiLicense, setFssaiLicense] = useState('');
   const [tradeType, setTradeType] = useState('RETAILER');
   const [gstVerified, setGstVerified] = useState(false);
   const [gstVerifying, setGstVerifying] = useState(false);
@@ -52,13 +52,9 @@ export const AuthFlow: React.FC = () => {
 
   const handleSelectRole = (role: UserRole) => {
     setSelectedRole(role);
-    if (role === 'FARMER') {
-      setPhone('+91 98765 43210');
-    } else if (role === 'BUYER') {
-      setPhone('+91 98112 00000');
-    } else {
-      setPhone('+91 99999 00000');
-    }
+    setPhone('');
+    setOtp('');
+    setErrorMessage('');
     setStep('enter-phone');
   };
 
@@ -469,7 +465,7 @@ export const AuthFlow: React.FC = () => {
                     type="text"
                     value={farmerName}
                     onChange={(e) => setFarmerName(e.target.value)}
-                    required
+                    placeholder="Enter your full name"
                     className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
                   />
                 </div>
@@ -483,8 +479,7 @@ export const AuthFlow: React.FC = () => {
                       setPmKisanId(e.target.value);
                       setFarmerVerified(false);
                     }}
-                    placeholder="e.g. UP-2024-889123"
-                    required
+                    placeholder="Enter PM-KISAN ID"
                     className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B] font-mono"
                   />
                 </div>
@@ -500,8 +495,7 @@ export const AuthFlow: React.FC = () => {
                       setKhasraNo(e.target.value);
                       setFarmerVerified(false);
                     }}
-                    placeholder="e.g. 142/2A, Agra Revenue Block"
-                    required
+                    placeholder="Enter Khasra / Plot Survey No"
                     className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
                   />
                 </div>
@@ -511,11 +505,11 @@ export const AuthFlow: React.FC = () => {
                   <input
                     type="number"
                     step="0.1"
-                    min="0.5"
-                    max="100"
+                    min="0.1"
+                    max="500"
                     value={landSizeAcres}
                     onChange={(e) => setLandSizeAcres(e.target.value)}
-                    required
+                    placeholder="e.g. 3.5"
                     className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
                   />
                 </div>
@@ -539,49 +533,53 @@ export const AuthFlow: React.FC = () => {
                   </button>
                 </div>
                 <div className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-800 flex items-center justify-between">
-                  <span>{gpsLocation}</span>
-                  <span className="text-[10px] text-emerald-700 font-semibold uppercase bg-emerald-100 px-1.5 py-0.5 rounded">
-                    Cluster Matched
-                  </span>
+                  <span>{gpsLocation || 'No GPS coordinates attached'}</span>
+                  {gpsLocation && (
+                    <span className="text-[10px] text-emerald-700 font-semibold uppercase bg-emerald-100 px-1.5 py-0.5 rounded">
+                      Cluster Matched
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Live Land Verification Checker */}
-              <div className="pt-2 border-t border-stone-100">
-                {!farmerVerified ? (
-                  <button
-                    type="button"
-                    onClick={handleFarmerKycVerification}
-                    disabled={farmerVerifying}
-                    className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {farmerVerifying ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Validating Against Land Records Registry...</span>
-                      </>
-                    ) : (
-                      <>
-                        <FileCheck className="w-3.5 h-3.5" />
-                        <span>Validate Land Record & PM-KISAN ID</span>
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-                      <BadgeCheck className="w-4 h-4 text-emerald-700" />
-                      <span>Govt Land Registry Match Verified</span>
+              {(pmKisanId || khasraNo) && (
+                <div className="pt-2 border-t border-stone-100">
+                  {!farmerVerified ? (
+                    <button
+                      type="button"
+                      onClick={handleFarmerKycVerification}
+                      disabled={farmerVerifying}
+                      className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {farmerVerifying ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Validating Against Land Records Registry...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileCheck className="w-3.5 h-3.5" />
+                          <span>Validate Entered Land Record</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                        <BadgeCheck className="w-4 h-4 text-emerald-700" />
+                        <span>Govt Land Registry Match Verified</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-800 grid grid-cols-2 gap-1 pt-1">
+                        <span>Beneficiary: <strong>{farmerName || 'Registered Farmer'}</strong></span>
+                        <span>Land Area: <strong>{landSizeAcres || 'Registered'} Acres</strong></span>
+                        <span>Status: <strong className="text-emerald-900">Active - Verified</strong></span>
+                        <span>Cadastral Plot: <strong>{khasraNo || pmKisanId}</strong></span>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-emerald-800 grid grid-cols-2 gap-1 pt-1">
-                      <span>Beneficiary: <strong>{farmerName}</strong></span>
-                      <span>Land Area: <strong>{landSizeAcres} Acres</strong></span>
-                      <span>Status: <strong className="text-emerald-900">Active - Direct Benefit Transfer Active</strong></span>
-                      <span>Cadastral Plot: <strong>{khasraNo}</strong></span>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="p-2.5 bg-red-50 text-red-700 text-xs rounded-lg flex items-center gap-2">
@@ -595,24 +593,18 @@ export const AuthFlow: React.FC = () => {
                 disabled={loading}
                 className="w-full py-3 bg-[#0E3B2B] hover:bg-[#144E39] text-white font-medium text-sm rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? 'Submitting...' : 'Complete Verification & Enter Farmer Dashboard'}
+                {loading ? 'Submitting...' : 'Save Verification & Open Farmer Dashboard'}
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="flex justify-between items-center text-[11px] text-stone-400 pt-1">
-                <span>Direct PM-KISAN API Integration</span>
+                <span>State Bhulekh Registry Integrated</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setFarmerName('Rajesh Kumar');
-                    setPmKisanId('UP-2024-889123');
-                    setKhasraNo('142/2A, Agra Revenue Block');
-                    setLandSizeAcres('3.5');
-                    setFarmerVerified(true);
-                  }}
-                  className="text-emerald-800 hover:underline cursor-pointer font-medium"
+                  onClick={() => loginAs('FARMER', { name: farmerName || 'Farmer', phone })}
+                  className="text-stone-500 hover:text-stone-800 hover:underline cursor-pointer"
                 >
-                  1-Tap Demo KYC Autofill
+                  Manage Land Records from Dashboard →
                 </button>
               </div>
             </form>
@@ -745,15 +737,10 @@ export const AuthFlow: React.FC = () => {
                 <span>GST Portal API Validated</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setGstin('07AAAAF1234A1Z5');
-                    setBuyerEntityName('FreshBasket Retail Enterprises Pvt Ltd');
-                    setFssaiLicense('10019011004123');
-                    setGstVerified(true);
-                  }}
-                  className="text-blue-700 hover:underline cursor-pointer font-medium"
+                  onClick={() => loginAs('BUYER', { name: buyerEntityName || 'Commercial Buyer', phone })}
+                  className="text-stone-500 hover:text-stone-800 hover:underline cursor-pointer"
                 >
-                  1-Tap Demo GST Autofill
+                  Manage GST from Dashboard →
                 </button>
               </div>
             </form>

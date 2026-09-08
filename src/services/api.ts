@@ -44,15 +44,16 @@ export async function verifyOtp(
                 user: {
                     id: 'USER-001',
                     phone,
-                    name: name || (role === 'FARMER' ? 'Rajesh Kumar' : role === 'BUYER' ? 'FreshBasket' : 'Admin'),
+                    name: name || (role === 'FARMER' ? 'Farmer' : role === 'BUYER' ? 'Buyer' : 'Admin'),
                     role: role || 'FARMER',
                     location: 'Agra Farm Cluster',
                     verificationStatus: 'VERIFIED',
-                    gstin: kycData?.gstin,
-                    businessLegalName: kycData?.businessLegalName,
-                    pmKisanId: kycData?.pmKisanId || (role === 'FARMER' ? 'UP-2024-889123' : undefined),
-                    khasraNo: kycData?.khasraNo || (role === 'FARMER' ? '142/2A, Agra Revenue Block' : undefined),
-                    landSizeAcres: kycData?.landSizeAcres || (role === 'FARMER' ? 3.5 : undefined),
+                    gstin: kycData?.gstin || undefined,
+                    businessLegalName: kycData?.businessLegalName || undefined,
+                    fssaiLicense: kycData?.fssaiLicense || undefined,
+                    pmKisanId: kycData?.pmKisanId || undefined,
+                    khasraNo: kycData?.khasraNo || undefined,
+                    landSizeAcres: kycData?.landSizeAcres || undefined,
                 },
             };
         }
@@ -250,4 +251,92 @@ export async function updateKycStatusApi(userId: string, status: 'VERIFIED' | 'R
         return false;
     }
 }
+
+export async function updateFarmerProfileApi(userId: string, profileData: {
+    pmKisanId?: string;
+    khasraNo?: string;
+    landSizeAcres?: number;
+    clusterName?: string;
+    name?: string;
+    location?: string;
+}): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/users/${userId}/farmer-profile`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(profileData),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function updateBuyerProfileApi(userId: string, profileData: {
+    name?: string;
+    businessLegalName?: string;
+    gstin?: string;
+    fssaiLicense?: string;
+    location?: string;
+}): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/users/${userId}/buyer-profile`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(profileData),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function createAdminUserApi(userData: {
+    role: string;
+    name: string;
+    phone: string;
+    location?: string;
+    pmKisanId?: string;
+    khasraNo?: string;
+    landSizeAcres?: number;
+    gstin?: string;
+    businessLegalName?: string;
+    fssaiLicense?: string;
+    verificationStatus?: string;
+}): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function updateAdminKycRecordApi(userId: string, data: {
+    name?: string;
+    location?: string;
+    pmKisanId?: string;
+    khasraNo?: string;
+    landSizeAcres?: number;
+    gstin?: string;
+    businessLegalName?: string;
+    fssaiLicense?: string;
+    verificationStatus?: string;
+}): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/kyc/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 

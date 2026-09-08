@@ -87,25 +87,25 @@ app.post('/api/auth/verify-farmer-land', async (req, res) => {
   try {
     const pmKisanId = (req.body.pmKisanId || '').trim().toUpperCase();
     const khasraNo = (req.body.khasraNo || '').trim();
-    const acres = Number(req.body.acres || 2.5);
+    const acres = req.body.acres || req.body.landSizeAcres ? Number(req.body.acres || req.body.landSizeAcres) : null;
 
     if (!pmKisanId && !khasraNo) {
       return res.status(400).json({
         valid: false,
-        error: 'Either a PM-KISAN ID (e.g. UP-2024-889123) or Land Survey / Khasra number is required.',
+        error: 'Either a PM-KISAN ID or Land Survey / Khasra number is required.',
       });
     }
 
     res.json({
       valid: true,
-      pmKisanId: pmKisanId || 'UP-2024-889123',
-      khasraNo: khasraNo || '142/2A, Agra Revenue Block',
-      landSizeAcres: acres > 0 ? acres : 3.5,
+      pmKisanId: pmKisanId || null,
+      khasraNo: khasraNo || null,
+      landSizeAcres: acres,
       landClassification: 'Agricultural / Irrigated Multi-Crop',
       soilHealthCardStatus: 'Certified Valid',
-      kisanTrustScore: '99% Verified Genuine Farmer',
-      verifiedRevenueDistrict: 'Agra Revenue Division, UP',
-      message: 'Land ownership record verified with State Land Registry (Bhulekh) & PM-KISAN Portal.',
+      kisanTrustScore: 'Verified Genuine Farmer',
+      verifiedRevenueDistrict: req.body.clusterLocation || 'Verified Revenue Belt',
+      message: 'Land ownership record verified with State Land Registry & PM-KISAN Portal.',
     });
   } catch (err) {
     res.status(500).json({ valid: false, error: 'Farmer land registry lookup failed' });
@@ -154,7 +154,8 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       landSizeAcres, 
       gstin, 
       businessLegalName, 
-      fssaiLicense 
+      fssaiLicense,
+      location 
     } = req.body;
 
     if (!phone || !otp) {
@@ -177,8 +178,8 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     if (!user) {
       const userId = `USER-${Date.now().toString().slice(-6)}`;
       const assignedRole = role || 'FARMER';
-      const defaultName = name || (assignedRole === 'FARMER' ? 'Rajesh Kumar' : assignedRole === 'BUYER' ? 'FreshBasket Buyer' : 'Admin User');
-      const defaultLocation = assignedRole === 'FARMER' ? 'Agra Farm Cluster' : 'Delhi NCR';
+      const defaultName = name || (assignedRole === 'FARMER' ? 'Farmer User' : assignedRole === 'BUYER' ? 'Buyer User' : 'Admin User');
+      const defaultLocation = location || (assignedRole === 'FARMER' ? 'Farm Cluster' : 'Delhi NCR');
 
       await pool.query(
         'INSERT INTO users (id, phone, name, role, location, verification_status, gstin, business_legal_name, fssai_license) VALUES (?, ?, ?, ?, ?, "VERIFIED", ?, ?, ?)',
@@ -191,9 +192,9 @@ app.post('/api/auth/verify-otp', async (req, res) => {
           [
             userId, 
             defaultLocation, 
-            pmKisanId || 'UP-2024-889123', 
-            khasraNo || '142/2A, Agra Revenue Block', 
-            landSizeAcres ? Number(landSizeAcres) : 3.5, 
+            pmKisanId || null, 
+            khasraNo || null, 
+            landSizeAcres ? Number(landSizeAcres) : null, 
             27.1767, 
             78.0081, 
             4.9, 
@@ -211,20 +212,22 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         verificationStatus: 'VERIFIED',
         gstin: gstin || null,
         businessLegalName: businessLegalName || null,
-        pmKisanId: pmKisanId || (assignedRole === 'FARMER' ? 'UP-2024-889123' : null),
+        pmKisanId: pmKisanId || null,
+        khasraNo: khasraNo || null,
+        landSizeAcres: landSizeAcres ? Number(landSizeAcres) : null,
       };
     } else {
       // Update any KYC provided on subsequent login
       if (gstin || businessLegalName || fssaiLicense) {
         await pool.query(
           'UPDATE users SET gstin = COALESCE(?, gstin), business_legal_name = COALESCE(?, business_legal_name), fssai_license = COALESCE(?, fssai_license) WHERE id = ?',
-          [gstin, businessLegalName, fssaiLicense, user.id]
+          [gstin || null, businessLegalName || null, fssaiLicense || null, user.id]
         );
       }
       if (user.role === 'FARMER' && (pmKisanId || khasraNo || landSizeAcres)) {
         await pool.query(
           'UPDATE farmer_profiles SET pm_kisan_id = COALESCE(?, pm_kisan_id), khasra_khatauni_no = COALESCE(?, khasra_khatauni_no), land_size_acres = COALESCE(?, land_size_acres) WHERE user_id = ?',
-          [pmKisanId, khasraNo, landSizeAcres ? Number(landSizeAcres) : null, user.id]
+          [pmKisanId || null, khasraNo || null, landSizeAcres ? Number(landSizeAcres) : null, user.id]
         );
       }
     }
@@ -673,6 +676,146 @@ app.patch('/api/admin/kyc/:userId', async (req, res) => {
   } catch (err) {
     console.error('update kyc status error:', err);
     res.status(500).json({ error: 'Failed to update user KYC status' });
+  }
+});
+
+app.patch('/api/users/:id/farmer-profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pmKisanId, khasraNo, landSizeAcres, clusterName, name, location } = req.body;
+
+    if (name || location) {
+      await pool.query(
+        'UPDATE users SET name = COALESCE(?, name), location = COALESCE(?, location) WHERE id = ?',
+        [name || null, location || null, id]
+      );
+    }
+
+    const [fpRows] = await pool.query('SELECT user_id FROM farmer_profiles WHERE user_id = ?', [id]);
+    if (fpRows.length > 0) {
+      await pool.query(
+        `UPDATE farmer_profiles SET 
+           pm_kisan_id = COALESCE(?, pm_kisan_id),
+           khasra_khatauni_no = COALESCE(?, khasra_khatauni_no),
+           land_size_acres = COALESCE(?, land_size_acres),
+           cluster_name = COALESCE(?, cluster_name)
+         WHERE user_id = ?`,
+        [pmKisanId || null, khasraNo || null, landSizeAcres ? Number(landSizeAcres) : null, clusterName || null, id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO farmer_profiles (user_id, cluster_name, pm_kisan_id, khasra_khatauni_no, land_size_acres, verified)
+         VALUES (?, ?, ?, ?, ?, TRUE)`,
+        [id, clusterName || 'Farm Cluster', pmKisanId || null, khasraNo || null, landSizeAcres ? Number(landSizeAcres) : null]
+      );
+    }
+
+    res.json({ success: true, message: 'Farmer profile updated successfully' });
+  } catch (err) {
+    console.error('update farmer profile error:', err);
+    res.status(500).json({ error: 'Failed to update farmer profile in database' });
+  }
+});
+
+app.patch('/api/users/:id/buyer-profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, businessLegalName, gstin, fssaiLicense, location } = req.body;
+
+    await pool.query(
+      `UPDATE users SET 
+         name = COALESCE(?, name),
+         business_legal_name = COALESCE(?, business_legal_name),
+         gstin = COALESCE(?, gstin),
+         fssai_license = COALESCE(?, fssai_license),
+         location = COALESCE(?, location)
+       WHERE id = ?`,
+      [name || null, businessLegalName || null, gstin || null, fssaiLicense || null, location || null, id]
+    );
+
+    res.json({ success: true, message: 'Buyer profile updated successfully' });
+  } catch (err) {
+    console.error('update buyer profile error:', err);
+    res.status(500).json({ error: 'Failed to update buyer profile in database' });
+  }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    const { role, name, phone, location, pmKisanId, khasraNo, landSizeAcres, gstin, businessLegalName, fssaiLicense, verificationStatus } = req.body;
+    if (!phone || !role) {
+      return res.status(400).json({ error: 'Phone and role are required' });
+    }
+    const cleanPhone = phone.replace(/[\s\-]/g, '');
+    const userId = `USER-${Date.now().toString().slice(-6)}`;
+    const status = verificationStatus || 'VERIFIED';
+
+    await pool.query(
+      `INSERT INTO users (id, phone, name, role, location, verification_status, gstin, business_legal_name, fssai_license)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         name = VALUES(name),
+         role = VALUES(role),
+         location = VALUES(location),
+         verification_status = VALUES(verification_status),
+         gstin = VALUES(gstin),
+         business_legal_name = VALUES(business_legal_name),
+         fssai_license = VALUES(fssai_license)`,
+      [userId, cleanPhone, name || 'Registered User', role, location || 'India', status, gstin || null, businessLegalName || null, fssaiLicense || null]
+    );
+
+    if (role === 'FARMER') {
+      await pool.query(
+        `INSERT INTO farmer_profiles (user_id, cluster_name, pm_kisan_id, khasra_khatauni_no, land_size_acres, verified)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           cluster_name = VALUES(cluster_name),
+           pm_kisan_id = VALUES(pm_kisan_id),
+           khasra_khatauni_no = VALUES(khasra_khatauni_no),
+           land_size_acres = VALUES(land_size_acres),
+           verified = VALUES(verified)`,
+        [userId, location || 'Farm Cluster', pmKisanId || null, khasraNo || null, landSizeAcres ? Number(landSizeAcres) : null, status === 'VERIFIED']
+      );
+    }
+
+    res.status(201).json({ success: true, userId, message: 'Entity registered successfully in database' });
+  } catch (err) {
+    console.error('admin create user error:', err);
+    res.status(500).json({ error: 'Failed to create user record' });
+  }
+});
+
+app.put('/api/admin/kyc/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, location, pmKisanId, khasraNo, landSizeAcres, gstin, businessLegalName, fssaiLicense, verificationStatus } = req.body;
+
+    await pool.query(
+      `UPDATE users SET 
+         name = COALESCE(?, name),
+         location = COALESCE(?, location),
+         verification_status = COALESCE(?, verification_status),
+         gstin = COALESCE(?, gstin),
+         business_legal_name = COALESCE(?, business_legal_name),
+         fssai_license = COALESCE(?, fssai_license)
+       WHERE id = ?`,
+      [name || null, location || null, verificationStatus || null, gstin || null, businessLegalName || null, fssaiLicense || null, userId]
+    );
+
+    await pool.query(
+      `UPDATE farmer_profiles SET
+         pm_kisan_id = COALESCE(?, pm_kisan_id),
+         khasra_khatauni_no = COALESCE(?, khasra_khatauni_no),
+         land_size_acres = COALESCE(?, land_size_acres),
+         verified = COALESCE(?, verified)
+       WHERE user_id = ?`,
+      [pmKisanId || null, khasraNo || null, landSizeAcres ? Number(landSizeAcres) : null, verificationStatus ? verificationStatus === 'VERIFIED' : null, userId]
+    );
+
+    res.json({ success: true, userId, message: 'KYC record updated in database' });
+  } catch (err) {
+    console.error('admin put kyc error:', err);
+    res.status(500).json({ error: 'Failed to update KYC record' });
   }
 });
 

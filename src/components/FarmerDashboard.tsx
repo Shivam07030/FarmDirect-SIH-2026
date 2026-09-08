@@ -12,11 +12,14 @@ import {
   ShieldCheck, 
   AlertCircle, 
   CheckCircle2, 
-  SlidersHorizontal 
+  SlidersHorizontal,
+  FileText,
+  Check,
+  Loader2
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
-import { fetchMarketRates } from '../services/api';
+import { fetchMarketRates, updateFarmerProfileApi } from '../services/api';
 
 export const FarmerDashboard: React.FC = () => {
   const { 
@@ -26,6 +29,7 @@ export const FarmerDashboard: React.FC = () => {
     updateOrderStatus,
     farmerName,
     currentUser,
+    updateCurrentUserProfile,
     activeTab,
     farmerStats,
     language
@@ -33,6 +37,15 @@ export const FarmerDashboard: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+  const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+
+  // Farmer KYC & Land Record Management State
+  const [kycFormPmKisan, setKycFormPmKisan] = useState(currentUser?.farmerKyc?.pmKisanId || '');
+  const [kycFormKhasra, setKycFormKhasra] = useState(currentUser?.farmerKyc?.khasraNo || '');
+  const [kycFormLandSize, setKycFormLandSize] = useState(currentUser?.farmerKyc?.landSizeAcres ? String(currentUser.farmerKyc.landSizeAcres) : '');
+  const [kycFormCluster, setKycFormCluster] = useState(currentUser?.farmerKyc?.verifiedCluster || 'Agra Farm Cluster');
+  const [kycSaving, setKycSaving] = useState(false);
+  const [kycSuccessMsg, setKycSuccessMsg] = useState('');
 
   const [cropName, setCropName] = useState('Tomato');
   const [quantity, setQuantity] = useState(450);
@@ -56,12 +69,61 @@ export const FarmerDashboard: React.FC = () => {
     });
   }, []);
 
+  const farmerFirstName = farmerName.split(' ')[0].toLowerCase();
   const myProduce = products.filter(
-    (p) => p.farmerName.toLowerCase().includes('rajesh') || p.farmerName.toLowerCase().includes('you')
+    (p) => p.farmerName.toLowerCase().includes(farmerFirstName) || p.farmerName.toLowerCase().includes('rajesh') || p.farmerName.toLowerCase().includes('you')
   );
   const myOrders = orders.filter(
-    (o) => o.farmerName.toLowerCase().includes('rajesh') || o.farmerName.toLowerCase().includes('you')
+    (o) => o.farmerName.toLowerCase().includes(farmerFirstName) || o.farmerName.toLowerCase().includes('rajesh') || o.farmerName.toLowerCase().includes('you')
   );
+
+  const handleSaveFarmerKyc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setKycSaving(true);
+    setKycSuccessMsg('');
+    const numericLandSize = parseFloat(kycFormLandSize) || 0;
+    try {
+      if (currentUser?.id) {
+        await updateFarmerProfileApi(currentUser.id, {
+          pmKisanId: kycFormPmKisan,
+          khasraNo: kycFormKhasra,
+          landSizeAcres: numericLandSize,
+          verifiedCluster: kycFormCluster
+        });
+      }
+      updateCurrentUserProfile({
+        farmerKyc: {
+          pmKisanId: kycFormPmKisan,
+          khasraNo: kycFormKhasra,
+          landSizeAcres: numericLandSize,
+          verifiedCluster: kycFormCluster,
+          isVerified: true
+        }
+      });
+      setKycSuccessMsg(isHindi ? 'पीएम-किसान और भूमि रिकॉर्ड सफलतापूर्वक अपडेट हुआ!' : 'Land & PM-KISAN records updated successfully!');
+      setTimeout(() => {
+        setIsKycModalOpen(false);
+        setKycSuccessMsg('');
+      }, 1000);
+    } catch {
+      updateCurrentUserProfile({
+        farmerKyc: {
+          pmKisanId: kycFormPmKisan,
+          khasraNo: kycFormKhasra,
+          landSizeAcres: numericLandSize,
+          verifiedCluster: kycFormCluster,
+          isVerified: true
+        }
+      });
+      setKycSuccessMsg(isHindi ? 'सत्र में सफलतापूर्वक अपडेट हुआ!' : 'Updated in active session!');
+      setTimeout(() => {
+        setIsKycModalOpen(false);
+        setKycSuccessMsg('');
+      }, 1000);
+    } finally {
+      setKycSaving(false);
+    }
+  };
 
   const upcomingPickup = myOrders.find((o) => o.status === 'Confirmed' || o.status === 'In Transit') || myOrders[0];
   const calculatedEarnings = myOrders.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
@@ -170,16 +232,32 @@ export const FarmerDashboard: React.FC = () => {
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
                   </span>
-                  <span className="text-[11px] text-stone-500 font-mono bg-stone-100 px-2 py-0.5 rounded">
-                    ID: {currentUser?.farmerKyc?.pmKisanId || 'UP-2024-889123'} · {currentUser?.farmerKyc?.landSizeAcres || 3.5} Acres
+                  <span className="text-[11px] text-stone-600 font-mono bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200 flex items-center gap-1.5">
+                    <span>PM-KISAN: {currentUser?.farmerKyc?.pmKisanId ? currentUser.farmerKyc.pmKisanId : 'Not Configured'}</span>
+                    <span>·</span>
+                    <span>{currentUser?.farmerKyc?.landSizeAcres ? `${currentUser.farmerKyc.landSizeAcres} Acres` : 'Land Unregistered'}</span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKycFormPmKisan(currentUser?.farmerKyc?.pmKisanId || '');
+                      setKycFormKhasra(currentUser?.farmerKyc?.khasraNo || '');
+                      setKycFormLandSize(currentUser?.farmerKyc?.landSizeAcres ? String(currentUser.farmerKyc.landSizeAcres) : '');
+                      setKycFormCluster(currentUser?.farmerKyc?.verifiedCluster || 'Agra Farm Cluster');
+                      setIsKycModalOpen(true);
+                    }}
+                    className="text-[11px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <SlidersHorizontal className="w-3 h-3" />
+                    <span>{isHindi ? 'भूमि व PM-KISAN बदलें' : 'Manage Land & PM-KISAN'}</span>
+                  </button>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight mt-1.5">
                   {isHindi ? `सुप्रभात, ${farmerName.split(' ')[0]}` : `Good morning, ${farmerName.split(' ')[0]}`}
                 </h1>
                 <p className="text-xs text-stone-500 mt-0.5">
                   {currentUser?.farmerKyc?.khasraNo ? `Khasra #${currentUser.farmerKyc.khasraNo} · ` : ''}
-                  {isHindi ? 'आगरा फार्म क्लस्टर · उत्तर प्रदेश' : 'Agra Farm Cluster · Uttar Pradesh'}
+                  {currentUser?.farmerKyc?.verifiedCluster || (isHindi ? 'फार्म क्लस्टर' : 'Farm Cluster')}
                 </p>
               </div>
 
@@ -783,6 +861,109 @@ export const FarmerDashboard: React.FC = () => {
                 {isHindi ? 'बंद करें' : 'Close'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isKycModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <h2 className="text-base font-semibold text-stone-900 font-serif">
+                  {isHindi ? 'पीएम-किसान और भूमि रिकॉर्ड प्रबंधित करें' : 'Manage Farm Land & PM-KISAN'}
+                </h2>
+                <p className="text-xs text-stone-500">
+                  {isHindi ? 'अपने भूलेख और सरकारी किसान पहचान को अपडेट करें' : 'Update your land parcel and verified identity'}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsKycModalOpen(false)}
+                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFarmerKyc} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-stone-700">PM-KISAN ID / Farmer Registration Number</label>
+                <input
+                  type="text"
+                  value={kycFormPmKisan}
+                  onChange={(e) => setKycFormPmKisan(e.target.value.toUpperCase())}
+                  placeholder="e.g. UP-2024-889123 or MH-2025-441209"
+                  className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B] font-mono uppercase"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-stone-700">Khasra / Survey No.</label>
+                  <input
+                    type="text"
+                    value={kycFormKhasra}
+                    onChange={(e) => setKycFormKhasra(e.target.value)}
+                    placeholder="e.g. 142/2A"
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B] font-mono"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-stone-700">Land Area (Acres)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={kycFormLandSize}
+                    onChange={(e) => setKycFormLandSize(e.target.value)}
+                    placeholder="e.g. 3.5"
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-stone-700">Agro-Climatic Cluster / Location</label>
+                <input
+                  type="text"
+                  value={kycFormCluster}
+                  onChange={(e) => setKycFormCluster(e.target.value)}
+                  placeholder="e.g. Agra Farm Cluster · Uttar Pradesh"
+                  className="w-full px-3 py-2 border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
+                  required
+                />
+              </div>
+
+              {kycSuccessMsg && (
+                <div className="p-2.5 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                  <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{kycSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsKycModalOpen(false)}
+                  className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  {isHindi ? 'रद्द करें' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={kycSaving}
+                  className="flex-1 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {kycSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  <span>{isHindi ? 'सेव करें' : 'Save Records'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
