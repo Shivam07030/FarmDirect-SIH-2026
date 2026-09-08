@@ -637,7 +637,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Refresh products so farmer average rating updates across produce cards
             fetchProducts().then((prods) => {
                 if (prods && prods.length > 0) setProducts(prods);
-            }).catch(() => {});
+            }).catch(() => { });
             return true;
         } else {
             showToast('info', 'Rating Recorded', 'Your rating was recorded in your session.');
