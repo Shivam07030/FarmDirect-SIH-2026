@@ -15,11 +15,14 @@ import {
   SlidersHorizontal,
   FileText,
   Check,
-  Loader2
+  Loader2,
+  Truck
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
 import { fetchMarketRates, updateFarmerProfileApi } from '../services/api';
+import { OrderTrackingModal } from './OrderTrackingModal';
+import { Order } from '../types';
 
 export const FarmerDashboard: React.FC = () => {
   const { 
@@ -37,6 +40,7 @@ export const FarmerDashboard: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
 
   // Farmer KYC & Land Record Management State
@@ -345,10 +349,15 @@ export const FarmerDashboard: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setIsTrackModalOpen(true)}
-                  className="flex-1 sm:flex-none text-center px-3.5 py-2 bg-stone-900 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                  onClick={() => {
+                    const matchedOrder = myOrders.find((o) => o.status !== 'Delivered') || myOrders[0] || orders[0] || null;
+                    setSelectedTrackingOrder(matchedOrder);
+                    setIsTrackModalOpen(true);
+                  }}
+                  className="flex-1 sm:flex-none text-center px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  {isHindi ? 'ट्रैक करें' : 'Track'}
+                  <Truck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isHindi ? 'लाइव ट्रैक' : 'Track Delivery'}</span>
                 </button>
               </div>
             )}
@@ -468,8 +477,8 @@ export const FarmerDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-50">
-                    <div className="text-left sm:text-right">
+                  <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-50">
+                    <div className="text-left sm:text-right mr-1">
                       <div className="text-base font-mono font-bold text-stone-900">
                         ₹{o.totalPrice.toLocaleString('en-IN')}
                       </div>
@@ -478,11 +487,23 @@ export const FarmerDashboard: React.FC = () => {
                       </div>
                     </div>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTrackingOrder(o);
+                        setIsTrackModalOpen(true);
+                      }}
+                      className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isHindi ? 'ट्रैक करें' : 'Track'}</span>
+                    </button>
+
                     {o.status === 'Confirmed' && (
                       <button
                         type="button"
                         onClick={() => updateOrderStatus(o.id, 'In Transit')}
-                        className="px-3.5 py-2 bg-[#0E3B2B] text-white text-xs font-semibold rounded-xl cursor-pointer"
+                        className="px-3.5 py-2 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
                       >
                         {isHindi ? 'डिस्पैच करें' : 'Dispatch'}
                       </button>
@@ -803,67 +824,17 @@ export const FarmerDashboard: React.FC = () => {
         </div>
       )}
 
-      {isTrackModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div>
-                <h2 className="text-base font-semibold text-stone-900 font-serif">
-                  {isHindi ? 'पिकअप और कोल्ड-चेन वाहन' : 'Pickup & Reefer Status'}
-                </h2>
-                <p className="text-xs text-stone-500">DL-1L-4482 · Tata Ultra Cold Reefer</p>
-              </div>
-              <button 
-                onClick={() => setIsTrackModalOpen(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 bg-stone-50 rounded-xl space-y-1">
-                <div className="font-semibold text-stone-900">Driver: Manpreet Singh</div>
-                <div className="text-stone-500">Contact: +91 98112 34567</div>
-                <div className="text-emerald-700 font-medium">Reefer Temp: 4°C · On Time</div>
-              </div>
-
-              <div className="space-y-3 pl-2 border-l-2 border-emerald-700 py-1">
-                <div className="relative pl-3">
-                  <div className="text-xs font-semibold text-stone-900">Agra Farm Cluster Pickup</div>
-                  <div className="text-[11px] text-stone-500">Scheduled: Today · 11:30 AM</div>
-                </div>
-                <div className="relative pl-3">
-                  <div className="text-xs font-semibold text-stone-700">Mathura Consolidation Hub</div>
-                  <div className="text-[11px] text-stone-400">Estimated: 1:15 PM</div>
-                </div>
-                <div className="relative pl-3">
-                  <div className="text-xs font-semibold text-stone-700">Delhi Azadpur Terminal</div>
-                  <div className="text-[11px] text-stone-400">Estimated: 4:30 PM</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <a
-                href="tel:+919811234567"
-                className="flex-1 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl text-center flex items-center justify-center gap-1.5"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>{isHindi ? 'ड्राइवर को कॉल' : 'Call Driver'}</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={() => setIsTrackModalOpen(false)}
-                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-              >
-                {isHindi ? 'बंद करें' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OrderTrackingModal
+        order={selectedTrackingOrder || myOrders.find((o) => o.status !== 'Delivered') || myOrders[0] || orders[0] || null}
+        isOpen={isTrackModalOpen}
+        onClose={() => {
+          setIsTrackModalOpen(false);
+          setSelectedTrackingOrder(null);
+        }}
+        viewerRole="FARMER"
+        onUpdateStatus={updateOrderStatus}
+        isHindi={isHindi}
+      />
 
       {isKycModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">

@@ -50,6 +50,11 @@ export interface Order {
   orderDate: string;
   status: OrderStatus;
   estimatedDelivery: string;
+  vehicleNumber?: string;
+  driverName?: string;
+  driverPhone?: string;
+  temperatureCelsius?: number;
+  deliveryOtp?: string;
 }
 
 export interface HistoricalDemandPoint {

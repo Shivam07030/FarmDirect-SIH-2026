@@ -16,6 +16,7 @@ import {
   Truck, 
   UserCheck 
 } from 'lucide-react';
+import { OrderTrackingModal } from './OrderTrackingModal';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -24,12 +25,15 @@ export const BuyerMarketplace: React.FC = () => {
     buyerName, 
     currentUser, 
     orders, 
+    updateOrderStatus,
     activeTab, 
     setActiveTab,
     buyerTier,
-    setBuyerTier 
+    setBuyerTier,
+    language 
   } = useApp();
 
+  const isHindi = language === 'hi';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
@@ -38,6 +42,10 @@ export const BuyerMarketplace: React.FC = () => {
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(buyerTier === 'RETAIL' ? 2 : 50);
   const [deliveryAddress, setDeliveryAddress] = useState('Delhi (Azadpur Terminal Hub)');
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
+
+  // Tracking modal state
+  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
+  const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
 
   const categories = ['All', 'Vegetables', 'Fruits', 'Grains', 'Pulses'];
 
@@ -143,13 +151,27 @@ export const BuyerMarketplace: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="text-base font-mono font-bold text-stone-900">
-                      ₹{ord.finalAmount.toLocaleString('en-IN')}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100">
+                    <div className="text-left sm:text-right mr-1">
+                      <div className="text-base font-mono font-bold text-stone-900">
+                        ₹{ord.finalAmount.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-emerald-700 font-semibold mt-0.5">
+                        {ord.status}
+                      </div>
                     </div>
-                    <div className="text-xs text-emerald-700 font-semibold mt-0.5">
-                      {ord.status}
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTrackingOrder(ord);
+                        setIsTrackModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isHindi ? 'लाइव ट्रैक' : 'Track Delivery'}</span>
+                    </button>
                   </div>
                 </div>
               ))
@@ -319,16 +341,33 @@ export const BuyerMarketplace: React.FC = () => {
 
           {/* Success Banner if order just placed */}
           {orderSuccess && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-              <div className="text-xs text-emerald-900">
-                <span className="font-semibold">Order confirmed!</span> {orderSuccess.quantity} kg of {orderSuccess.productName} scheduled for cold-chain dispatch.
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="text-xs text-emerald-950 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+                <span>
+                  <span className="font-bold">Order #{orderSuccess.id} confirmed!</span> {orderSuccess.quantity} kg of {orderSuccess.productName} scheduled for cold-chain dispatch.
+                </span>
               </div>
-              <button
-                onClick={() => setActiveTab('orders')}
-                className="text-xs font-semibold text-emerald-900 underline cursor-pointer ml-4 shrink-0"
-              >
-                View Orders
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTrackingOrder(orderSuccess);
+                    setIsTrackModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                >
+                  <Truck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isHindi ? 'लाइव ट्रैक करें' : 'Track Live Delivery'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('orders')}
+                  className="px-2.5 py-1.5 text-xs font-semibold text-emerald-900 hover:underline cursor-pointer"
+                >
+                  {isHindi ? 'सभी ऑर्डर देखें' : 'View Orders'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -624,6 +663,19 @@ export const BuyerMarketplace: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Live Order Tracking Modal (Amazon-style) */}
+      <OrderTrackingModal
+        order={selectedTrackingOrder}
+        isOpen={isTrackModalOpen}
+        onClose={() => {
+          setIsTrackModalOpen(false);
+          setSelectedTrackingOrder(null);
+        }}
+        viewerRole="BUYER"
+        onUpdateStatus={updateOrderStatus}
+        isHindi={isHindi}
+      />
 
     </div>
   );

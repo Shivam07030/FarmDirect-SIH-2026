@@ -453,13 +453,18 @@ app.get('/api/orders', async (req, res) => {
        ORDER BY o.created_at DESC`
     );
 
-    const orders = rows.map((o) => ({
-      ...o,
-      pricePerKg: Number(o.pricePerKg),
-      totalPrice: Number(o.totalPrice),
-      logisticsFee: Number(o.logisticsFee),
-      finalAmount: Number(o.finalAmount),
-    }));
+    const orders = rows.map((o) => {
+      const idHash = Math.abs(o.id.split('').reduce((acc, c) => ((acc << 5) - acc) + c.charCodeAt(0), 0));
+      const fallbackOtp = String((idHash % 9000) + 1000);
+      return {
+        ...o,
+        deliveryOtp: o.deliveryOtp || fallbackOtp,
+        pricePerKg: Number(o.pricePerKg),
+        totalPrice: Number(o.totalPrice),
+        logisticsFee: Number(o.logisticsFee),
+        finalAmount: Number(o.finalAmount),
+      };
+    });
 
     res.json(orders);
   } catch (err) {
@@ -568,6 +573,12 @@ app.post('/api/orders', async (req, res) => {
         status: 'Confirmed',
         orderDate,
         estimatedDelivery: 'Tomorrow · 10:00 AM',
+        vehicleNumber: 'DL-1L-4482',
+        driverName: 'Manpreet Singh',
+        driverPhone: '+91 98112 34567',
+        temperatureCelsius: 4.0,
+        deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+        buyerTier: tier,
       },
     });
   } catch (err) {

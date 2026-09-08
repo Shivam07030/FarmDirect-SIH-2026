@@ -391,7 +391,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deliveryLocation: params.deliveryLocation,
       orderDate: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'Confirmed',
-      estimatedDelivery: isRetail ? 'Today · Local Consumer Hub' : 'Within 24 Hours (Refrigerated Freight)',
+      estimatedDelivery: isRetail ? 'Today · 4:30 PM (Local EV Dispatch)' : 'Tomorrow · 10:00 AM (Cold-Chain Reefer)',
+      pickupLocation: `${product.farmerName} Farm, ${product.location || 'Agra Cluster'}`,
+      pickupCoords: { lat: 27.1767, lng: 78.0081 },
+      destinationCoords: { lat: 28.7041, lng: 77.1025 },
+      distanceKm: isRetail ? 28 : 195,
+      durationText: isRetail ? '45m' : '3h 50m',
+      vehicleNumber: isRetail ? 'DL-8S-9012 (EV City Van)' : 'DL-1L-4482 (Reefer Cold Chain)',
+      driverName: isRetail ? 'Amit Verma' : 'Manpreet Singh',
+      driverPhone: '+91 98112 34567',
+      temperatureCelsius: isRetail ? 8.0 : 4.0,
+      deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
     };
 
     // Update product stock
