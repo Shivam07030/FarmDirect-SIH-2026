@@ -15,13 +15,14 @@ import {
   BadgeCheck, 
   Sparkles,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ShoppingBag
 } from 'lucide-react';
 import { sendOtp, verifyOtp, verifyGstApi, verifyFarmerLandApi } from '../services/api';
 import { getCurrentCoordinates } from '../services/locationService';
 
 export const AuthFlow: React.FC = () => {
-  const { loginAs } = useApp();
+  const { loginAs, setBuyerTier } = useApp();
   const [step, setStep] = useState<'select-role' | 'enter-phone' | 'enter-otp' | 'kyc-onboarding'>('select-role');
   const [selectedRole, setSelectedRole] = useState<UserRole>('FARMER');
   
@@ -235,18 +236,43 @@ export const AuthFlow: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => handleSelectRole('BUYER')}
+                onClick={() => {
+                  setBuyerTier('RETAIL');
+                  handleSelectRole('BUYER');
+                }}
                 className="w-full text-left p-4 rounded-xl border border-stone-200 bg-white hover:border-[#0E3B2B] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-base font-semibold text-stone-900">Commercial Buyer (GSTIN Protocol)</span>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                      GSTIN / FSSAI
+                    <span className="text-base font-semibold text-stone-900">Normal Buyer / Household Retail</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                      Max 2 kg Cap
                     </span>
                   </div>
                   <div className="text-xs text-stone-500">
-                    Source verified produce directly with automated GST invoice generation and cold chain delivery.
+                    Direct farmgate produce for home consumption. Anti-hoarding protocol limits purchases to 2 kg per crop for fair household distribution.
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-[#0E3B2B] group-hover:translate-x-0.5 transition-all shrink-0 ml-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBuyerTier('WHOLESALE');
+                  handleSelectRole('BUYER');
+                }}
+                className="w-full text-left p-4 rounded-xl border border-stone-200 bg-white hover:border-[#0E3B2B] hover:shadow-xs transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-semibold text-stone-900">Wholesale Commercial Buyer</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300">
+                      Bulk 50kg+ · GSTIN
+                    </span>
+                  </div>
+                  <div className="text-xs text-stone-500">
+                    Wholesale procurement for retail chains and mandi traders with verified 15-digit GSTIN, automated e-way bills, and 4°C reefer logistics.
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-[#0E3B2B] group-hover:translate-x-0.5 transition-all shrink-0 ml-4" />
@@ -260,7 +286,7 @@ export const AuthFlow: React.FC = () => {
                 <div className="space-y-1">
                   <div className="text-base font-semibold text-stone-900">Marketplace Admin & Compliance</div>
                   <div className="text-xs text-stone-500">
-                    Review KYC approval queue, monitor fair price collars, and supervise milk-run cold chain logistics.
+                    Review KYC approval queue, audit PM-KISAN land records, monitor fair price collars, and supervise cold chain logistics.
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-[#0E3B2B] group-hover:translate-x-0.5 transition-all shrink-0 ml-4" />
@@ -271,25 +297,49 @@ export const AuthFlow: React.FC = () => {
                 <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider text-center">
                   Quick Evaluator Demo Shortcuts
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => loginAs('FARMER')}
-                    className="py-2.5 px-3 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center"
+                    className="py-2.5 px-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate"
                   >
-                    Demo: Verified Farmer
+                    Demo: Farmer
                   </button>
                   <button
                     type="button"
-                    onClick={() => loginAs('BUYER')}
-                    className="py-2.5 px-3 bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center"
+                    onClick={() => {
+                      setBuyerTier('RETAIL');
+                      loginAs('BUYER', { 
+                        name: 'Aakash Sharma (Household Consumer)', 
+                        location: 'Delhi NCR',
+                        buyerTier: 'RETAIL'
+                      });
+                    }}
+                    className="py-2.5 px-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate border border-emerald-600"
                   >
-                    Demo: GST Buyer
+                    Demo: Normal Buyer (2kg)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuyerTier('WHOLESALE');
+                      loginAs('BUYER', { 
+                        name: 'FreshBasket Supermarket', 
+                        location: 'Delhi NCR', 
+                        buyerTier: 'WHOLESALE',
+                        gstin: '07AAAAF1234A1Z5',
+                        businessLegalName: 'FreshBasket Retail Enterprises Pvt Ltd',
+                        fssaiLicense: '10019011004123'
+                      });
+                    }}
+                    className="py-2.5 px-2.5 bg-blue-800 hover:bg-blue-900 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate border border-blue-600"
+                  >
+                    Demo: Wholesaler (Bulk)
                   </button>
                   <button
                     type="button"
                     onClick={() => loginAs('ADMIN')}
-                    className="py-2.5 px-3 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center"
+                    className="py-2.5 px-2.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate"
                   >
                     Demo: Admin Desk
                   </button>

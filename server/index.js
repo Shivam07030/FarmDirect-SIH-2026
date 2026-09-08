@@ -473,8 +473,24 @@ app.post('/api/orders', async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const { productId, quantity, deliveryLocation, buyerName } = req.body;
+    const { productId, quantity, deliveryLocation, buyerName, buyerTier } = req.body;
     const reqQty = Number(quantity);
+
+    // Dual-tier buyer purchase limits (SIH 2026 Household Rationing vs Wholesale B2B)
+    const tier = buyerTier || (reqQty <= 2 ? 'RETAIL' : 'WHOLESALE');
+    if (tier === 'RETAIL' && reqQty > 2) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        error: 'Retail Household Cap Exceeded: Purchases in the Normal Buyer section are strictly capped at 2 kg per crop to prevent hoarding and ensure fair household rationing.' 
+      });
+    }
+
+    if (tier === 'WHOLESALE' && reqQty < 25) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        error: 'Wholesale Minimum Not Met: Commercial wholesale orders require a minimum batch of 25 kg for refrigerated freight. For small household quantities (up to 2 kg), please order via the Normal Buyer section.' 
+      });
+    }
 
     const [prodRows] = await connection.query(
       `SELECT p.*, u.name AS farmer_name 
@@ -500,8 +516,9 @@ app.post('/api/orders', async (req, res) => {
 
     const orderId = `ORD-${Date.now().toString().slice(-4)}`;
     const pricePerKg = Number(prod.price_per_kg);
-    const totalPrice = reqQty * pricePerKg;
-    const logisticsFee = Math.max(150, Math.round(reqQty * 2.2));
+    const totalPrice = Math.round(reqQty * pricePerKg * 100) / 100;
+    // Local household dispatch ₹25 vs refrigerated B2B reefer freight
+    const logisticsFee = tier === 'RETAIL' ? 25 : Math.max(150, Math.round(reqQty * 2.2));
     const finalAmount = totalPrice + logisticsFee;
     const orderDate = new Date().toISOString().split('T')[0];
 

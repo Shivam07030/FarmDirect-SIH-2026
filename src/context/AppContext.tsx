@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, UserRole, OrderStatus, UserProfile } from '../types';
+import { Product, Order, UserRole, OrderStatus, UserProfile, BuyerTier } from '../types';
 import { 
   fetchProducts, 
   createProductListing, 
@@ -28,6 +28,8 @@ export interface ToastMessage {
 interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
+  buyerTier: BuyerTier;
+  setBuyerTier: (tier: BuyerTier) => void;
   language: 'hi' | 'en';
   setLanguage: (lang: 'hi' | 'en') => void;
   currentView: AppView;
@@ -45,6 +47,7 @@ interface AppContextType {
     quantity: number;
     deliveryLocation: string;
     buyerName?: string;
+    buyerTier?: BuyerTier;
   }) => { success: boolean; order?: Order; error?: string };
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   resetDemoData: () => void;
@@ -90,6 +93,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem(STORAGE_ROLE_KEY);
     return (saved as UserRole) || 'FARMER';
   });
+
+  const [buyerTier, setBuyerTierState] = useState<BuyerTier>(() => {
+    const saved = localStorage.getItem('farmdirect_buyer_tier_v1');
+    return (saved as BuyerTier) || 'RETAIL';
+  });
+
+  const setBuyerTier = (tier: BuyerTier) => {
+    setBuyerTierState(tier);
+    localStorage.setItem('farmdirect_buyer_tier_v1', tier);
+  };
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem(STORAGE_USER_KEY);
@@ -324,6 +337,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Invalid quantity' };
     }
 
+    const tier = params.buyerTier || buyerTier;
+
+    // Normal Buyer / Direct Household purchase cap: 2 kg
+    if (tier === 'RETAIL' && params.quantity > 2) {
+      showToast(
+        'error',
+        'Retail Limit: Max 2 kg',
+        'Normal household buyers can purchase a maximum of 2 kg per crop to prevent hoarding and ensure fair rationing.'
+      );
+      return { success: false, error: 'Maximum retail purchase limit is 2 kg per crop.' };
+    }
+
+    // Commercial Wholesale MOQ: 25 kg
+    if (tier === 'WHOLESALE' && params.quantity < 25) {
+      showToast(
+        'error',
+        'Wholesale Minimum: Min 25 kg',
+        'Commercial wholesale orders require a minimum batch of 25 kg.'
+      );
+      return { success: false, error: 'Minimum wholesale quantity is 25 kg.' };
+    }
+
     if (params.quantity > product.quantity) {
       showToast(
         'error',
@@ -334,9 +369,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Calculate transparent pricing
-    const producePrice = params.quantity * product.pricePerKg;
-    // Transparent FarmDirect logistics fee: nominal ₹2-₹3/kg flat or min ₹150
-    const logisticsFee = Math.max(150, Math.round(params.quantity * 2.2));
+    const producePrice = Math.round(params.quantity * product.pricePerKg * 100) / 100;
+    const isRetail = tier === 'RETAIL';
+    // Local household delivery ₹25 vs industrial refrigerated reefer logistics
+    const logisticsFee = isRetail ? 25 : Math.max(150, Math.round(params.quantity * 2.2));
     const finalAmount = producePrice + logisticsFee;
 
     const newOrder: Order = {
@@ -346,6 +382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: product.category,
       farmerName: product.farmerName,
       buyerName: params.buyerName || buyerName,
+      buyerTier: tier,
       quantity: params.quantity,
       pricePerKg: product.pricePerKg,
       totalPrice: producePrice,
@@ -354,7 +391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deliveryLocation: params.deliveryLocation,
       orderDate: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'Confirmed',
-      estimatedDelivery: 'Within 24 Hours (Direct Farm Dispatch)',
+      estimatedDelivery: isRetail ? 'Today · Local Consumer Hub' : 'Within 24 Hours (Refrigerated Freight)',
     };
 
     // Update product stock
@@ -420,6 +457,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         role,
         setRole,
+        buyerTier,
+        setBuyerTier,
         language,
         setLanguage,
         currentView,

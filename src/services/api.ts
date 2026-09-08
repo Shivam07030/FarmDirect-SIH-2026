@@ -100,6 +100,7 @@ export async function submitOrder(orderData: {
     quantity: number;
     deliveryLocation: string;
     buyerName?: string;
+    buyerTier?: 'RETAIL' | 'WHOLESALE';
 }): Promise<{ success: boolean; order?: Order; error?: string }> {
     try {
         const res = await fetch(`${API_BASE}/api/orders`, {

@@ -1,4 +1,5 @@
 export type UserRole = 'FARMER' | 'BUYER' | 'ADMIN';
+export type BuyerTier = 'RETAIL' | 'WHOLESALE';
 
 export type ProductCategory = 'Vegetables' | 'Grains' | 'Fruits' | 'Pulses' | 'Spices';
 
@@ -33,6 +34,7 @@ export interface Order {
   category: ProductCategory;
   farmerName: string;
   buyerName: string;
+  buyerTier?: BuyerTier;
   quantity: number; // in kg
   pricePerKg: number;
   totalPrice: number;
@@ -150,4 +152,5 @@ export interface UserProfile {
   verificationStatus: VerificationStatus;
   farmerKyc?: FarmerKycData;
   buyerKyc?: BuyerKycData;
+  buyerTier?: BuyerTier;
 }
