@@ -17,11 +17,13 @@ import {
   RotateCcw,
   MessageSquare,
   LifeBuoy,
-  Star
+  Star,
+  QrCode
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
+import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { releaseCashfreePayoutApi } from '../services/api';
 
 interface OrderTrackingModalProps {
@@ -45,6 +47,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
   const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [isPassportOpen, setIsPassportOpen] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -358,6 +361,35 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             </div>
           </div>
 
+          {/* Farm-to-Fork Public Trust Passport Banner */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#0E3B2B] to-[#165640] text-white flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-emerald-300 shrink-0">
+                <QrCode className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>{isHindi ? 'फार्म-टू-फोर्क डिजिटल ट्रस्ट पासपोर्ट' : 'Farm-to-Fork Public Trust Passport'}</span>
+                  <span className="text-[9px] bg-emerald-400/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-400/30">
+                    PM-KISAN LINKED
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-100">
+                  {isHindi ? 'सत्यापनीय क्यूआर कोड, किसान भूमि रिकॉर्ड व पूर्ण कोल्ड-चेन ऑडिट' : 'Scannable QR, Khasra land verification & full cold-chain audit graph'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsPassportOpen(true)}
+              className="px-3.5 py-1.5 bg-white hover:bg-stone-100 text-[#0E3B2B] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-xs"
+            >
+              <span>{isHindi ? 'पासपोर्ट देखें' : 'View Passport'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Simulated Route Waypoint Diagram */}
           <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-3">
             <div className="flex items-center justify-between">
@@ -656,6 +688,14 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       <RatingModal
         isOpen={isRatingOpen}
         onClose={() => setIsRatingOpen(false)}
+        order={order}
+        isHindi={isHindi}
+      />
+
+      {/* Embedded Farm-to-Fork Trust Passport Modal */}
+      <FarmToForkPassportModal
+        isOpen={isPassportOpen}
+        onClose={() => setIsPassportOpen(false)}
         order={order}
         isHindi={isHindi}
       />

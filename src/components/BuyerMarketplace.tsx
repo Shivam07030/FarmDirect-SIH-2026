@@ -18,11 +18,14 @@ import {
   LifeBuoy,
   Star,
   SlidersHorizontal,
-  RotateCcw
+  RotateCcw,
+  QrCode,
+  Award
 } from 'lucide-react';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
+import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -67,6 +70,11 @@ export const BuyerMarketplace: React.FC = () => {
   // Grievance / Dispute ticket state
   const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
   const [grievanceOrderId, setGrievanceOrderId] = useState('');
+
+  // Farm-to-Fork Trust Passport Modal State
+  const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
+  const [selectedPassportProduct, setSelectedPassportProduct] = useState<Product | null>(null);
+  const [selectedPassportOrder, setSelectedPassportOrder] = useState<Order | null>(null);
 
   const categories = ['All', 'Vegetables', 'Fruits', 'Grains', 'Pulses', 'Spices'];
   const qualities = ['All', 'Grade A+ (Export Quality)', 'Grade A (Premium)', 'Grade B (Standard)', 'Organic Certified'];
@@ -343,6 +351,18 @@ export const BuyerMarketplace: React.FC = () => {
                           <span>{isHindi ? 'रेटिंग दें' : 'Rate Order'}</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPassportOrder(ord);
+                          setIsPassportModalOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{isHindi ? 'पासपोर्ट QR' : 'Passport'}</span>
+                      </button>
 
                       <button
                         type="button"
@@ -676,6 +696,12 @@ export const BuyerMarketplace: React.FC = () => {
                         <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
                         <span>PM-KISAN</span>
                       </span>
+                      {p.freshnessScore && (
+                        <span className="text-[10px] text-blue-900 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-semibold flex items-center gap-0.5">
+                          <Award className="w-2.5 h-2.5 text-blue-600" />
+                          <span>{p.freshnessScore}% Fresh</span>
+                        </span>
+                      )}
                       <span>· {p.location}</span>
                     </div>
                   </div>
@@ -693,27 +719,42 @@ export const BuyerMarketplace: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleOpenBuy(p)}
-                      className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                        buyerTier === 'RETAIL'
-                          ? 'bg-emerald-700 hover:bg-emerald-800'
-                          : 'bg-blue-700 hover:bg-blue-800'
-                      }`}
-                    >
-                      {buyerTier === 'RETAIL' ? (
-                        <>
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                          <span>Buy (Max {marketRules.retailMaxQtyKg} kg)</span>
-                        </>
-                      ) : (
-                        <>
-                          <Building2 className="w-3.5 h-3.5" />
-                          <span>Buy Wholesale</span>
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPassportProduct(p);
+                          setIsPassportModalOpen(true);
+                        }}
+                        className="p-2 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title={isHindi ? 'डिजिटल ट्रस्ट पासपोर्ट व कोल्ड-चेन देखें' : 'View Farm-to-Fork Trust Passport & Cold-Chain'}
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBuy(p)}
+                        className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                          buyerTier === 'RETAIL'
+                            ? 'bg-emerald-700 hover:bg-emerald-800'
+                            : 'bg-blue-700 hover:bg-blue-800'
+                        }`}
+                      >
+                        {buyerTier === 'RETAIL' ? (
+                          <>
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Buy (Max {marketRules.retailMaxQtyKg} kg)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Building2 className="w-3.5 h-3.5" />
+                            <span>Buy Wholesale</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -775,6 +816,19 @@ export const BuyerMarketplace: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Inspect Farm-to-Fork Trust Passport & Cold-Chain */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPassportProduct(selectedProduct);
+                setIsPassportModalOpen(true);
+              }}
+              className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              <QrCode className="w-4 h-4 text-emerald-700" />
+              <span>{isHindi ? 'फार्म-टू-फोर्क डिजिटल ट्रस्ट पासपोर्ट व कोल्ड-चेन देखें' : 'Inspect Farm-to-Fork Digital Trust Passport & 4°C Log'}</span>
+            </button>
 
             <form onSubmit={handleConfirmPurchase} className="space-y-4">
               <div>
@@ -998,12 +1052,25 @@ export const BuyerMarketplace: React.FC = () => {
 
       {/* Produce & Delivery Rating & Review Modal */}
       <RatingModal
-        isOpen={isRatingModalOpen}
+        isOpen={isRatingOpen}
         onClose={() => {
           setIsRatingModalOpen(false);
           setSelectedRatingOrder(null);
         }}
         order={selectedRatingOrder}
+        isHindi={isHindi}
+      />
+
+      {/* Farm-to-Fork Public Trust Passport Modal */}
+      <FarmToForkPassportModal
+        isOpen={isPassportModalOpen}
+        onClose={() => {
+          setIsPassportModalOpen(false);
+          setSelectedPassportProduct(null);
+          setSelectedPassportOrder(null);
+        }}
+        product={selectedPassportProduct}
+        order={selectedPassportOrder}
         isHindi={isHindi}
       />
 

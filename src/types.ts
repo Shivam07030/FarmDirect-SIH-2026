@@ -25,6 +25,11 @@ export interface Product {
   isDemoAdded?: boolean;
   variety?: string;
   status?: 'Active' | 'Paused';
+  aiQualityGrade?: string;
+  freshnessScore?: number;
+  shelfLifeDays?: number;
+  qualityCertificateId?: string;
+  batchId?: string;
 }
 
 export interface Order {

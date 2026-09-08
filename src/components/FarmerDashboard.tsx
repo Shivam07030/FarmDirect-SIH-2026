@@ -22,14 +22,24 @@ import {
   Search,
   Landmark,
   CreditCard,
-  BadgeCheck
+  BadgeCheck,
+  Mic,
+  QrCode,
+  Sparkles,
+  Award
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
 import { fetchMarketRates, updateFarmerProfileApi, verifyMeonPennyDropApi, verifyMeonPanApi, verifyMeonAadhaarApi } from '../services/api';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { GrievanceModal } from './GrievanceModal';
-import { Order } from '../types';
+import { KisanVaaniModal } from './KisanVaaniModal';
+import { SpokenCropIntent } from '../services/voiceService';
+import { ProduceQualityScannerModal } from './ProduceQualityScannerModal';
+import { ProduceScanResult } from '../services/aiVisionService';
+import { FarmToForkPassportModal } from './FarmToForkPassportModal';
+import { MandiArbitrageMatrix } from './MandiArbitrageMatrix';
+import { Order, Product } from '../types';
 
 export const FarmerDashboard: React.FC = () => {
   const { 
@@ -51,6 +61,16 @@ export const FarmerDashboard: React.FC = () => {
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
   const [grievanceOrderId, setGrievanceOrderId] = useState('');
+
+  // 4 Showstopper Features State
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
+  const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
+  const [selectedPassportProduct, setSelectedPassportProduct] = useState<Product | null>(null);
+  const [selectedPassportOrder, setSelectedPassportOrder] = useState<Order | null>(null);
+  const [scannedQualityGrade, setScannedQualityGrade] = useState<string>('');
+  const [scannedFreshnessScore, setScannedFreshnessScore] = useState<number | undefined>(undefined);
+  const [scannedCertificateId, setScannedCertificateId] = useState<string>('');
 
   // Farmer KYC & Land Record Management State
   const [kycFormPmKisan, setKycFormPmKisan] = useState(currentUser?.farmerKyc?.pmKisanId || '');
@@ -323,15 +343,72 @@ export const FarmerDashboard: React.FC = () => {
       quantity: Number(quantity),
       initialQuantity: Number(quantity),
       pricePerKg: Number(pricePerKg),
-      location: farmLocation || 'Agra',
+      location: farmLocation || 'Agra Farm Cluster',
       harvestDate: new Date().toISOString().split('T')[0],
-      quality: 'Grade A (Premium)',
+      quality: (scannedQualityGrade as any) || 'Grade A (Premium)',
       farmerName: `${farmerName} (You)`,
-      farmerPhone: '+91 98765 43210',
+      farmerPhone: currentUser?.phone || '+91 70429 28392',
       imageUrl: produceImage || undefined,
+      aiQualityGrade: scannedQualityGrade || undefined,
+      freshnessScore: scannedFreshnessScore || undefined,
+      qualityCertificateId: scannedCertificateId || undefined,
     });
     setProduceImage('');
+    setScannedQualityGrade('');
+    setScannedFreshnessScore(undefined);
+    setScannedCertificateId('');
     setIsAddModalOpen(false);
+  };
+
+  const handleConfirmVoiceListing = (intent: SpokenCropIntent) => {
+    setCropName(intent.cropName);
+    setQuantity(intent.quantityKg);
+    setPricePerKg(intent.pricePerKg);
+    setCategory(intent.category);
+
+    const defaultImg = intent.cropName.toLowerCase().includes('potato') 
+      ? 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80'
+      : intent.cropName.toLowerCase().includes('onion')
+      ? 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80'
+      : 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80';
+
+    addProduct({
+      name: intent.cropName,
+      category: intent.category,
+      quantity: Number(intent.quantityKg),
+      initialQuantity: Number(intent.quantityKg),
+      pricePerKg: Number(intent.pricePerKg),
+      location: farmLocation || 'Agra Farm Cluster',
+      harvestDate: new Date().toISOString().split('T')[0],
+      quality: 'Grade A+ (Export Quality)',
+      farmerName: `${farmerName} (You)`,
+      farmerPhone: currentUser?.phone || '+91 70429 28392',
+      imageUrl: defaultImg,
+      aiQualityGrade: 'Grade A+ (Export Quality)',
+      freshnessScore: 96,
+      shelfLifeDays: 14,
+      qualityCertificateId: 'AGM-2026-VAANI',
+    });
+    setKycSuccessMsg(isHindi 
+      ? `बोलकर फसल सफलतापूर्वक लिस्ट की गई: ${intent.quantityKg} किलो ${intent.cropHindi} @ ₹${intent.pricePerKg}/kg` 
+      : `Voice Crop Listed Successfully: ${intent.quantityKg} kg ${intent.cropName} @ ₹${intent.pricePerKg}/kg`);
+    setIsVoiceModalOpen(false);
+  };
+
+  const handleApplyAiGrade = (result: ProduceScanResult, imageSrc: string) => {
+    setProduceImage(imageSrc);
+    setScannedQualityGrade(result.grade);
+    setScannedFreshnessScore(result.freshnessScore);
+    setScannedCertificateId(result.certificateId);
+    setKycSuccessMsg(isHindi 
+      ? `एआई गुणवत्ता प्रमाणपत्र संलग्न: ${result.gradeHindi} (${result.freshnessScore}% ताजगी)` 
+      : `AI Quality Certificate attached: ${result.grade} (${result.freshnessScore}% Freshness)`);
+  };
+
+  const handleListFromArbitrage = (crop: string, optimalPrice: number) => {
+    setCropName(crop);
+    setPricePerKg(optimalPrice);
+    setIsAddModalOpen(true);
   };
 
   const handleTriggerSellTomato = () => {
@@ -434,14 +511,25 @@ export const FarmerDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(true)}
-                className="px-3.5 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{isHindi ? 'फसल बेचें' : 'Sell Crop'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceModalOpen(true)}
+                  className="px-3.5 py-2.5 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-700 hover:to-amber-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:shadow-md border border-amber-400/30"
+                >
+                  <Mic className="w-4 h-4 text-amber-100 animate-pulse" />
+                  <span>{isHindi ? 'बोलकर फसल बेचें' : 'Kisan Vaani AI'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-3.5 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isHindi ? 'फसल बेचें' : 'Sell Crop'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-stone-100">
@@ -532,6 +620,87 @@ export const FarmerDashboard: React.FC = () => {
             )}
           </section>
 
+          {/* SIH 2026 Showstopper Innovation Suite Strip */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs uppercase tracking-wider font-bold text-stone-600 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>{isHindi ? 'स्मार्ट इंडिया हैकाथॉन 2026 नवाचार' : 'SIH 2026 Agritech Innovation Suite'}</span>
+              </h2>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full">
+                {isHindi ? '4 नए फीचर्स लाइव' : '4 Innovations Active'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Tile 1: Kisan Vaani */}
+              <button
+                type="button"
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-white to-amber-100/50 border border-amber-200 text-left hover:border-amber-300 transition-all cursor-pointer shadow-xs group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <div className="font-bold text-stone-900 text-sm mt-2.5">
+                  {isHindi ? 'किसान वाणी (बोलकर बेचें)' : 'Kisan Vaani AI Voice'}
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {isHindi ? 'हिंदी/अंग्रेजी में बोलें, 5 सेकंड में फसल लिस्ट करें' : 'Speech-to-listing NLP with audio confirmation'}
+                </p>
+                <div className="text-[11px] text-amber-800 font-bold mt-2 flex items-center gap-1">
+                  <span>{isHindi ? 'माइक शुरू करें' : 'Launch Voice'}</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </button>
+
+              {/* Tile 2: AI Scanner */}
+              <button
+                type="button"
+                onClick={() => setIsAiScannerOpen(true)}
+                className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-emerald-100/50 border border-emerald-200 text-left hover:border-emerald-300 transition-all cursor-pointer shadow-xs group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div className="font-bold text-stone-900 text-sm mt-2.5">
+                  {isHindi ? 'एआई फसल गुणवत्ता स्कैनर' : 'AI Produce Scanner'}
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {isHindi ? 'कैमरा से ग्रेड A+ सर्टिफिकेट व शेल्फ-लाइफ जांचें' : 'Computer vision defect analysis & APEDA grading'}
+                </p>
+                <div className="text-[11px] text-emerald-800 font-bold mt-2 flex items-center gap-1">
+                  <span>{isHindi ? 'स्कैनर खोलें' : 'Scan Produce'}</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </button>
+
+              {/* Tile 3: Trust Passport */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPassportProduct(myProduce[0] || products[0] || null);
+                  setIsPassportModalOpen(true);
+                }}
+                className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-white to-blue-100/50 border border-blue-200 text-left hover:border-blue-300 transition-all cursor-pointer shadow-xs group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div className="font-bold text-stone-900 text-sm mt-2.5">
+                  {isHindi ? 'डिजिटल ट्रस्ट पासपोर्ट' : 'Farm-to-Fork Passport'}
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {isHindi ? 'सत्यापित क्यूआर कोड, भूमि रिकॉर्ड व रीफर कोल्ड-चेन' : 'Verifiable QR, PM-KISAN seal & 4°C IoT log'}
+                </p>
+                <div className="text-[11px] text-blue-800 font-bold mt-2 flex items-center gap-1">
+                  <span>{isHindi ? 'पासपोर्ट देखें' : 'View Passport'}</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </button>
+            </div>
+          </section>
+
           <section className="space-y-3 bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-xs">
             <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
               <h2 className="text-xs uppercase tracking-wider font-semibold text-stone-500">
@@ -578,6 +747,12 @@ export const FarmerDashboard: React.FC = () => {
 
       {activeTab === 'produce' && (
         <div className="space-y-6">
+          {/* Mandi Arbitrage Matrix Component */}
+          <MandiArbitrageMatrix 
+            onListCropAtPrice={handleListFromArbitrage} 
+            isHindi={isHindi} 
+          />
+
           <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
@@ -599,20 +774,43 @@ export const FarmerDashboard: React.FC = () => {
 
           <div className="bg-white rounded-2xl border border-stone-200 shadow-xs divide-y divide-stone-100 overflow-hidden">
             {myProduce.map((p) => (
-              <div key={p.id} className="p-4 flex items-center justify-between">
+              <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="font-semibold text-stone-900 text-sm sm:text-base">{p.name}</div>
-                  <div className="text-xs text-stone-500 mt-0.5">
-                    {p.quantity} kg · {p.quality}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-stone-900 text-sm sm:text-base">{p.name}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      {p.aiQualityGrade || p.quality}
+                    </span>
+                    {p.freshnessScore && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                        {p.freshnessScore}% Fresh
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[11px] text-stone-400 mt-0.5">
-                    {p.location} · {p.harvestDate}
+                  <div className="text-xs text-stone-500 mt-0.5">
+                    {p.quantity} kg · {p.location} · {p.harvestDate}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-mono font-bold text-stone-900 text-base">₹{p.pricePerKg}/kg</div>
-                  <div className="text-xs text-emerald-700 font-medium mt-0.5">
-                    {isHindi ? 'सक्रिय' : 'Active'}
+
+                <div className="flex items-center gap-3 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPassportProduct(p);
+                      setIsPassportModalOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>{isHindi ? 'डिजिटल पासपोर्ट' : 'Passport QR'}</span>
+                  </button>
+
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-stone-900 text-base">₹{p.pricePerKg}/kg</div>
+                    <div className="text-xs text-emerald-700 font-medium mt-0.5 flex items-center gap-1 justify-end">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      <span>{isHindi ? 'सक्रिय' : 'Active'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -720,6 +918,18 @@ export const FarmerDashboard: React.FC = () => {
                           {o.status}
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPassportOrder(o);
+                          setIsPassportModalOpen(true);
+                        }}
+                        className="px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{isHindi ? 'पासपोर्ट QR' : 'Passport'}</span>
+                      </button>
 
                       <button
                         type="button"
@@ -970,6 +1180,15 @@ export const FarmerDashboard: React.FC = () => {
                   <div className="space-y-2">
                     <button
                       type="button"
+                      onClick={() => setIsAiScannerOpen(true)}
+                      className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-800 to-[#0E3B2B] hover:from-emerald-700 hover:to-[#144E39] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-300" />
+                      <span>{isHindi ? 'AI कंप्यूटर विजन से गुणवत्ता स्कैन करें (APEDA/AGMARK)' : 'Scan Produce with AI Computer Vision (APEDA Grade)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleCapturePhoto}
                       disabled={isCapturingPhoto}
                       className="w-full py-2.5 px-3 border border-dashed border-stone-300 hover:border-emerald-600 rounded-xl text-xs font-medium text-stone-600 hover:text-emerald-800 flex items-center justify-center gap-2 bg-stone-50 transition-colors cursor-pointer"
@@ -981,6 +1200,25 @@ export const FarmerDashboard: React.FC = () => {
                           : (isHindi ? 'कैमरा से फोटो खींचें / अपलोड करें' : 'Take Crop Photo with Camera / Upload')}
                       </span>
                     </button>
+
+                    {scannedQualityGrade && (
+                      <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs mt-2">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <div>
+                            <div className="font-bold text-emerald-950">
+                              {scannedQualityGrade} ({scannedFreshnessScore}% {isHindi ? 'ताजगी' : 'Freshness'})
+                            </div>
+                            <div className="text-[10px] text-emerald-700 font-mono">
+                              Certificate #{scannedCertificateId}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                          {isHindi ? 'सत्यापित' : 'Verified'}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 text-[11px] text-stone-400">
                       <span>{isHindi ? 'या नमूना चुनें:' : 'Or tap sample:'}</span>
@@ -1381,6 +1619,36 @@ export const FarmerDashboard: React.FC = () => {
         defaultOrderId={grievanceOrderId}
         defaultCategory="ESCROW_PAYMENT_DELAY"
         defaultSubject={grievanceOrderId ? `Order #${grievanceOrderId} Payment / Logistics Dispute` : 'Produce Grievance'}
+      />
+
+      {/* 1. Kisan Vaani AI Voice Assistant Modal */}
+      <KisanVaaniModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onConfirmListing={handleConfirmVoiceListing}
+        isHindi={isHindi}
+      />
+
+      {/* 2. AI Produce Quality & Shelf-Life Scanner Modal */}
+      <ProduceQualityScannerModal
+        isOpen={isAiScannerOpen}
+        onClose={() => setIsAiScannerOpen(false)}
+        cropHint={cropName}
+        onApplyGrade={handleApplyAiGrade}
+        isHindi={isHindi}
+      />
+
+      {/* 3. Farm-to-Fork Public Trust Passport Modal */}
+      <FarmToForkPassportModal
+        isOpen={isPassportModalOpen}
+        onClose={() => {
+          setIsPassportModalOpen(false);
+          setSelectedPassportProduct(null);
+          setSelectedPassportOrder(null);
+        }}
+        product={selectedPassportProduct}
+        order={selectedPassportOrder}
+        isHindi={isHindi}
       />
 
     </div>
