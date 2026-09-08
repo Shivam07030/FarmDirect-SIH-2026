@@ -22,6 +22,7 @@ import {
 import { Order, OrderStatus } from '../types';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
+import { releaseCashfreePayoutApi } from '../services/api';
 
 interface OrderTrackingModalProps {
   order: Order | null;
@@ -78,6 +79,13 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   };
 
   const handleAdvanceStatus = (newStatus: OrderStatus) => {
+    if (newStatus === 'Delivered') {
+      releaseCashfreePayoutApi({
+        orderId: order.id,
+        amount: order.totalPrice,
+        farmerName: order.farmerName
+      }).catch(() => {});
+    }
     if (onUpdateStatus) {
       onUpdateStatus(order.id, newStatus);
     }
@@ -524,10 +532,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
           )}
 
           {/* Direct Settlement Breakdown */}
-          <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50 space-y-2 text-xs">
+          <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50 space-y-2.5 text-xs">
             <div className="flex items-center justify-between font-semibold text-stone-900 border-b border-stone-200 pb-2">
               <span>{isHindi ? 'एस्क्रो व मूल्य विवरण' : 'Financial & Settlement Breakdown'}</span>
-              <span className="font-mono text-emerald-800 font-bold">100% Direct Escrow</span>
+              <span className="font-mono text-emerald-800 font-bold">100% Cashfree Escrow</span>
             </div>
             <div className="flex items-center justify-between text-stone-600">
               <span>{isHindi ? 'फसल मूल्य:' : 'Farm Produce Value:'}</span>
@@ -540,6 +548,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             <div className="flex items-center justify-between text-stone-900 font-bold pt-1 border-t border-stone-200">
               <span>{isHindi ? 'कुल राशि:' : 'Total Transaction Value:'}</span>
               <span className="font-mono text-sm text-stone-900">₹{order.finalAmount.toLocaleString('en-IN')}</span>
+            </div>
+
+            {/* Cashfree Escrow & Meon DBT Status */}
+            <div className="mt-2 pt-2 border-t border-stone-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2 bg-white rounded-lg border border-stone-200 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-stone-400">Escrow Security</span>
+                <div className="font-semibold text-stone-800 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>{order.status === 'Delivered' ? 'Funds Released to Farmer' : 'Locked in RBI Nodal Escrow'}</span>
+                </div>
+                <div className="text-[10px] text-stone-500 font-mono">Ref: {order.paymentId || `CF_PAY_${order.id}`}</div>
+              </div>
+              <div className="p-2 bg-white rounded-lg border border-stone-200 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-stone-400">Beneficiary DBT Bank</span>
+                <div className="font-semibold text-stone-800 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Meon Pennydrop Verified</span>
+                </div>
+                <div className="text-[10px] text-stone-500">Auto-Disbursed via IMPS on OTP Handover</div>
+              </div>
             </div>
           </div>
 

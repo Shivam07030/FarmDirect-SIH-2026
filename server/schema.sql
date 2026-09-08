@@ -23,6 +23,11 @@ CREATE TABLE users (
   gstin VARCHAR(15) NULL,
   business_legal_name VARCHAR(255) NULL,
   fssai_license VARCHAR(14) NULL,
+  aadhaar_no VARCHAR(20) NULL,
+  pan_no VARCHAR(15) NULL,
+  bank_account_no VARCHAR(30) NULL,
+  bank_ifsc VARCHAR(20) NULL,
+  bank_name VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -36,6 +41,11 @@ CREATE TABLE farmer_profiles (
   longitude DECIMAL(10, 6) DEFAULT 78.0081,
   rating DECIMAL(2, 1) DEFAULT 4.9,
   verified BOOLEAN DEFAULT TRUE,
+  aadhaar_no VARCHAR(20) NULL,
+  pan_no VARCHAR(15) NULL,
+  bank_account_no VARCHAR(30) NULL,
+  bank_ifsc VARCHAR(20) NULL,
+  bank_name VARCHAR(100) NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -77,6 +87,10 @@ CREATE TABLE orders (
   produce_rating INT NULL,
   logistics_rating INT NULL,
   rated_at TIMESTAMP NULL,
+  payment_status VARCHAR(50) DEFAULT 'PAID_ESCROW_LOCKED',
+  payment_id VARCHAR(100) NULL,
+  payment_mode VARCHAR(50) DEFAULT 'CASHFREE_UPI',
+  cf_order_id VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE CASCADE
 );

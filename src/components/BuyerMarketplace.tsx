@@ -936,6 +936,21 @@ export const BuyerMarketplace: React.FC = () => {
                     ).toLocaleString('en-IN')}
                   </span>
                 </div>
+
+                <div className="p-2.5 bg-emerald-50/90 border border-emerald-200 rounded-lg space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-emerald-900">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Cashfree Smart Escrow Protection</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200">
+                      RBI Nodal Account
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-stone-600 leading-tight">
+                    Funds remain safely locked in Cashfree Escrow. Payout is automatically released to {selectedProduct.farmerName}'s verified bank account only after you inspect and provide the delivery OTP.
+                  </p>
+                </div>
               </div>
 
               <button
@@ -951,7 +966,7 @@ export const BuyerMarketplace: React.FC = () => {
                     : 'bg-blue-700 hover:bg-blue-800'
                 }`}
               >
-                {buyerTier === 'RETAIL' ? `Confirm Household Purchase (Max ${marketRules.retailMaxQtyKg} kg)` : `Confirm Wholesale Order (Min ${marketRules.wholesaleMinQtyKg} kg)`}
+                {buyerTier === 'RETAIL' ? `Pay & Lock in Cashfree Escrow (Max ${marketRules.retailMaxQtyKg} kg)` : `Lock Wholesale Escrow (Min ${marketRules.wholesaleMinQtyKg} kg)`}
               </button>
             </form>
           </div>

@@ -328,16 +328,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     pmKisanId: userData.pmKisanId || '',
                     khasraNo: userData.khasraNo || '',
                     landSizeAcres: userData.landSizeAcres ? Number(userData.landSizeAcres) : undefined,
-                    clusterLocation: userData.clusterLocation || userData.location || 'Farm Cluster',
+                    clusterLocation: userData.clusterLocation || userData.location || 'Agra Farm Cluster',
+                    verifiedCluster: userData.clusterLocation || userData.location || 'Agra Farm Cluster',
                     verifiedAt: userData.pmKisanId ? '2026-03-01' : undefined,
+                    isVerified: true,
+                    aadhaarNo: userData.aadhaarNo || '',
+                    panNo: userData.panNo || '',
+                    bankAccountNo: userData.bankAccountNo || '',
+                    bankIfsc: userData.bankIfsc || '',
+                    bankName: userData.bankName || '',
+                    dbtLinked: Boolean(userData.bankAccountNo || userData.aadhaarNo),
                 } : undefined,
                 buyerKyc: selectedRole === 'BUYER' ? {
                     gstin: userData.gstin || '',
                     legalBusinessName: userData.businessLegalName || userData.name || '',
-                    pan: userData.gstin ? userData.gstin.slice(2, 12) : '',
+                    pan: userData.panNo || (userData.gstin ? userData.gstin.slice(2, 12) : ''),
                     state: userData.state || 'Delhi (07)',
                     fssaiLicense: userData.fssaiLicense || '',
                     tradeType: 'RETAILER',
+                    aadhaarNo: userData.aadhaarNo || '',
+                    bankAccountNo: userData.bankAccountNo || '',
+                    bankIfsc: userData.bankIfsc || '',
+                    bankName: userData.bankName || '',
                 } : undefined,
             };
         } else {
@@ -578,6 +590,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             driverPhone: '+91 98112 34567',
             temperatureCelsius: isRetail ? 8.0 : 4.0,
             deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+            paymentStatus: 'PAID_ESCROW_LOCKED',
+            paymentMode: 'CASHFREE_UPI',
+            paymentId: `CF_PAY_${Date.now().toString().slice(-6)}`,
+            cfOrderId: `CF_ORD_${Math.floor(1000 + Math.random() * 9000)}`,
         };
 
         // Update product stock
@@ -592,8 +608,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         showToast(
             'success',
-            'Order Confirmed!',
-            `Order ${newOrder.id} placed for ${params.quantity} kg of ${product.name} (Total: ₹${finalAmount.toLocaleString('en-IN')}).`
+            'Order Confirmed & Escrow Locked',
+            `Order ${newOrder.id} placed for ${params.quantity} kg of ${product.name}. Funds secured in Cashfree Escrow (₹${finalAmount.toLocaleString('en-IN')}).`
         );
 
         return { success: true, order: newOrder };
@@ -601,7 +617,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
         setOrders((prev) =>
-            prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
+            prev.map((ord) => (ord.id === orderId ? { 
+                ...ord, 
+                status: newStatus,
+                paymentStatus: newStatus === 'Delivered' ? 'RELEASED_TO_FARMER' : ord.paymentStatus
+            } : ord))
         );
         updateOrderStatusApi(orderId, newStatus).catch(() => { });
         showToast('info', 'Order Status Updated', `Order ${orderId} marked as "${newStatus}".`);

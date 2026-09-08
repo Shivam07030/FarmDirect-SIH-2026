@@ -60,6 +60,10 @@ export interface Order {
   produceRating?: number;
   logisticsRating?: number;
   ratedAt?: string;
+  paymentStatus?: 'PAID_ESCROW_LOCKED' | 'PAYOUT_RELEASED' | 'PENDING';
+  paymentId?: string;
+  paymentMode?: string;
+  cfOrderId?: string;
 }
 
 export interface HistoricalDemandPoint {
@@ -133,6 +137,14 @@ export interface FarmerKycData {
   lat?: number;
   lng?: number;
   verifiedAt?: string;
+  verifiedCluster?: string;
+  isVerified?: boolean;
+  aadhaarNo?: string;
+  panNo?: string;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+  bankName?: string;
+  dbtLinked?: boolean;
 }
 
 export interface BuyerKycData {
@@ -142,6 +154,10 @@ export interface BuyerKycData {
   state: string;
   fssaiLicense?: string;
   tradeType: 'RETAILER' | 'WHOLESALER' | 'PROCESSOR' | 'EXPORTER';
+  aadhaarNo?: string;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+  bankName?: string;
 }
 
 export interface PriceCollar {
