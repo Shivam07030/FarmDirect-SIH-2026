@@ -254,6 +254,17 @@ export const FarmerDashboard: React.FC = () => {
   const calculatedEarnings = myOrders.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
   const displayEarnings = farmerStats.totalEarningsInr > 0 ? farmerStats.totalEarningsInr : calculatedEarnings;
 
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 12) {
+      return isHindi ? 'सुप्रभात' : 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      return isHindi ? 'शुभ दोपहर' : 'Good afternoon';
+    } else {
+      return isHindi ? 'शुभ संध्या' : 'Good evening';
+    }
+  };
+
   const handleDetectLocation = async () => {
     setIsLocating(true);
     try {
@@ -509,7 +520,7 @@ export const FarmerDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight">
-                  {isHindi ? `सुप्रभात, ${farmerName.split(' ')[0]}` : `Good morning, ${farmerName.split(' ')[0]}`}
+                  {getTimeGreeting()}, {farmerName.split(' ')[0]}
                 </h1>
                 <p className="text-xs text-stone-500 mt-1 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
