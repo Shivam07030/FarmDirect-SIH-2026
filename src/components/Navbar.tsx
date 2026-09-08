@@ -11,7 +11,8 @@ import {
   Truck, 
   Users, 
   Store, 
-  Globe 
+  Globe,
+  Download
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -120,6 +121,15 @@ export const Navbar: React.FC = () => {
             </nav>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
+              <a
+                href="/downloads/farmdirect-latest.apk"
+                download="farmdirect-latest.apk"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors"
+                title="Download Android APK"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-700" />
+                <span>APK</span>
+              </a>
               {role === 'FARMER' && (
                 <button
                   type="button"
