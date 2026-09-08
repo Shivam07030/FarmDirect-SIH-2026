@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, Order, UserRole, OrderStatus } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_ORDERS } from '../data/initialData';
 import { 
   fetchProducts, 
   createProductListing, 
@@ -135,29 +134,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const farmerName = 'Rajesh Kumar';
   const buyerName = 'FreshBasket Supermarket (Delhi)';
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_PRODUCTS_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // ignore
-    }
-    return INITIAL_PRODUCTS;
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_ORDERS_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // ignore
-    }
-    return INITIAL_ORDERS;
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   // Save to localStorage
   useEffect(() => {
@@ -303,12 +281,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('info', 'Order Status Updated', `Order ${orderId} marked as "${newStatus}".`);
   };
 
-  const resetDemoData = () => {
-    setProducts(INITIAL_PRODUCTS);
-    setOrders(INITIAL_ORDERS);
+  const resetDemoData = async () => {
     localStorage.removeItem(STORAGE_PRODUCTS_KEY);
     localStorage.removeItem(STORAGE_ORDERS_KEY);
-    showToast('info', 'Demo Reset', 'Products and orders have been restored to initial sample state.');
+    try {
+      const [prodRes, orderRes] = await Promise.all([fetchProducts(), fetchOrders()]);
+      setProducts(prodRes);
+      setOrders(orderRes);
+      showToast('info', 'Data Refreshed', 'Refreshed latest produce and orders from database.');
+    } catch {
+      showToast('info', 'Cache Cleared', 'Local storage cleared.');
+    }
   };
 
   // Farmer metrics (calculated for farmerName)

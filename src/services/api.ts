@@ -120,3 +120,28 @@ export async function fetchStats(): Promise<any> {
     return null;
   }
 }
+
+export async function fetchMarketRates(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/market/rates`);
+    if (!res.ok) throw new Error('Failed to fetch market rates');
+    return await res.json();
+  } catch {
+    return [
+      { id: 1, crop_name: 'Tomato', mandi_farmer_price: 18, mandi_consumer_price: 32, farmdirect_farmer_price: 24, farmdirect_consumer_price: 27, demand_growth: '+18%' },
+      { id: 2, crop_name: 'Potato', mandi_farmer_price: 14, mandi_consumer_price: 22, farmdirect_farmer_price: 18, farmdirect_consumer_price: 19, demand_growth: '+12%' },
+      { id: 3, crop_name: 'Onion', mandi_farmer_price: 22, mandi_consumer_price: 35, farmdirect_farmer_price: 27, farmdirect_consumer_price: 31, demand_growth: '+15%' },
+      { id: 4, crop_name: 'Wheat (Sharbati)', mandi_farmer_price: 26, mandi_consumer_price: 40, farmdirect_farmer_price: 31, farmdirect_consumer_price: 36, demand_growth: '+8%' },
+    ];
+  }
+}
+
+export async function fetchUsers(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/users`);
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return await res.json();
+  } catch {
+    return [];
+  }
+}

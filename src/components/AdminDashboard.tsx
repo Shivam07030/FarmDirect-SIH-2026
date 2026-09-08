@@ -1,25 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { Check, Truck, Users, ShoppingBag, IndianRupee } from 'lucide-react';
 import { LogisticsMap } from './LogisticsMap';
 import { ErrorBoundary } from './ErrorBoundary';
+import { fetchUsers, fetchStats } from '../services/api';
 
 export const AdminDashboard: React.FC = () => {
   const { adminStats, orders, updateOrderStatus, activeTab } = useApp();
 
-  const farmersList = [
-    { name: 'Rajesh Kumar', phone: '+91 98765 43210', location: 'Agra', crops: 'Tomato, Potato', status: 'Verified' },
-    { name: 'Balram Singh', phone: '+91 94123 55678', location: 'Mathura', crops: 'Potato (Kufri Jyoti)', status: 'Verified' },
-    { name: 'Hardeep Yadav', phone: '+91 98234 11223', location: 'Aligarh', crops: 'Onion, Garlic', status: 'Verified' },
-    { name: 'Suresh Verma', phone: '+91 91543 88990', location: 'Lucknow', crops: 'Sharbati Wheat', status: 'Verified' },
-  ];
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [liveStats, setLiveStats] = useState<any>(null);
 
-  const buyersList = [
-    { name: 'FreshBasket Supermarket', contact: 'Deepak Saxena', location: 'Delhi NCR', volume: '1,200 kg/wk', status: 'Active' },
-    { name: 'AgroPure Processing Ltd', contact: 'Meera Chawla', location: 'Greater Noida', volume: '3,500 kg/wk', status: 'Active' },
-    { name: 'Delhi Culinary Cooperative', contact: 'Karan Mehra', location: 'Okhla, Delhi', volume: '800 kg/wk', status: 'Active' },
-  ];
+  useEffect(() => {
+    fetchUsers().then(setDbUsers).catch(() => {});
+    fetchStats().then(setLiveStats).catch(() => {});
+  }, []);
+
+  const farmersList = dbUsers.filter((u) => u.role === 'FARMER');
+  const buyersList = dbUsers.filter((u) => u.role === 'BUYER');
+
+  const gmv = liveStats?.gmv ?? adminStats.totalTransactionValue;
+  const totalFarmersCount = liveStats?.totalFarmers ?? adminStats.totalFarmers;
+  const totalBuyersCount = liveStats?.totalBuyers ?? adminStats.totalBuyers;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-10 font-sans">
@@ -33,7 +36,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="p-4 bg-white border border-stone-200 rounded-xl space-y-1">
               <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-400">GMV</div>
               <div className="text-xl font-mono font-bold text-stone-900">
-                ₹{adminStats.totalTransactionValue.toLocaleString('en-IN')}
+                ₹{gmv.toLocaleString('en-IN')}
               </div>
             </div>
 
@@ -44,12 +47,12 @@ export const AdminDashboard: React.FC = () => {
 
             <div className="p-4 bg-white border border-stone-200 rounded-xl space-y-1">
               <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-400">Farmers</div>
-              <div className="text-xl font-mono font-bold text-stone-900">{adminStats.totalFarmers}</div>
+              <div className="text-xl font-mono font-bold text-stone-900">{totalFarmersCount}</div>
             </div>
 
             <div className="p-4 bg-white border border-stone-200 rounded-xl space-y-1">
               <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-400">Buyers</div>
-              <div className="text-xl font-mono font-bold text-stone-900">{adminStats.totalBuyers}</div>
+              <div className="text-xl font-mono font-bold text-stone-900">{totalBuyersCount}</div>
             </div>
 
             <div className="p-4 bg-white border border-stone-200 rounded-xl space-y-1">
