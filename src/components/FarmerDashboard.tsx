@@ -462,71 +462,79 @@ export const FarmerDashboard: React.FC = () => {
       {activeTab === 'home' && (
         <div className="space-y-6">
           <section className="space-y-3 bg-white p-4 sm:p-5 rounded-2xl border border-stone-200/90 shadow-xs">
-            <div className="flex items-center justify-between">
+            {/* Top Verification Strip */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-stone-100">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
+                </span>
+                <span className="text-[11px] text-stone-600 font-mono bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200 flex items-center gap-1.5">
+                  <span>PM-KISAN: {currentUser?.farmerKyc?.pmKisanId ? currentUser.farmerKyc.pmKisanId : 'UP-2024-889123'}</span>
+                  <span>·</span>
+                  <span>{currentUser?.farmerKyc?.landSizeAcres ? `${currentUser.farmerKyc.landSizeAcres} Acres` : '3.5 Acres'}</span>
+                </span>
+                <span className="text-[11px] text-blue-800 font-mono bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
+                  <CreditCard className="w-3 h-3 text-blue-600" />
+                  <span>Aadhaar: {currentUser?.farmerKyc?.aadhaarNo ? `•••• ${currentUser.farmerKyc.aadhaarNo.slice(-4)}` : '•••• 8891'}</span>
+                </span>
+                <span className="text-[11px] text-emerald-800 font-mono bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                  <Landmark className="w-3 h-3 text-emerald-600" />
+                  <span>Bank: {currentUser?.farmerKyc?.bankName || 'Punjab National Bank'} (DBT Jan-Dhan)</span>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setKycFormPmKisan(currentUser?.farmerKyc?.pmKisanId || 'UP-2024-889123');
+                  setKycFormKhasra(currentUser?.farmerKyc?.khasraNo || '142/2A');
+                  setKycFormLandSize(currentUser?.farmerKyc?.landSizeAcres ? String(currentUser.farmerKyc.landSizeAcres) : '3.5');
+                  setKycFormCluster(currentUser?.farmerKyc?.verifiedCluster || 'Agra Farm Cluster');
+                  setKycFormAadhaar(currentUser?.farmerKyc?.aadhaarNo || '');
+                  setKycFormPan(currentUser?.farmerKyc?.panNo || '');
+                  setKycFormBankAccount(currentUser?.farmerKyc?.bankAccountNo || '');
+                  setKycFormBankIfsc(currentUser?.farmerKyc?.bankIfsc || '');
+                  setKycFormBankName(currentUser?.farmerKyc?.bankName || 'Punjab National Bank');
+                  setIsKycModalOpen(true);
+                }}
+                className="text-[11px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 font-medium px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{isHindi ? 'केवाईसी व बैंक बदलें' : 'Manage KYC & Bank'}</span>
+              </button>
+            </div>
+
+            {/* Middle Row: Farmer Name & Primary Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
-                  </span>
-                  <span className="text-[11px] text-stone-600 font-mono bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200 flex items-center gap-1.5">
-                    <span>PM-KISAN: {currentUser?.farmerKyc?.pmKisanId ? currentUser.farmerKyc.pmKisanId : 'UP-2024-889123'}</span>
-                    <span>·</span>
-                    <span>{currentUser?.farmerKyc?.landSizeAcres ? `${currentUser.farmerKyc.landSizeAcres} Acres` : '3.5 Acres'}</span>
-                  </span>
-                  <span className="text-[11px] text-blue-800 font-mono bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
-                    <CreditCard className="w-3 h-3 text-blue-600" />
-                    <span>Aadhaar: {currentUser?.farmerKyc?.aadhaarNo ? `•••• ${currentUser.farmerKyc.aadhaarNo.slice(-4)}` : 'UIDAI Verified'}</span>
-                  </span>
-                  <span className="text-[11px] text-emerald-800 font-mono bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
-                    <Landmark className="w-3 h-3 text-emerald-600" />
-                    <span>Bank: {currentUser?.farmerKyc?.bankName || 'State Bank of India'} (DBT Jan-Dhan)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setKycFormPmKisan(currentUser?.farmerKyc?.pmKisanId || 'UP-2024-889123');
-                      setKycFormKhasra(currentUser?.farmerKyc?.khasraNo || '142/2A');
-                      setKycFormLandSize(currentUser?.farmerKyc?.landSizeAcres ? String(currentUser.farmerKyc.landSizeAcres) : '3.5');
-                      setKycFormCluster(currentUser?.farmerKyc?.verifiedCluster || 'Agra Farm Cluster');
-                      setKycFormAadhaar(currentUser?.farmerKyc?.aadhaarNo || '');
-                      setKycFormPan(currentUser?.farmerKyc?.panNo || '');
-                      setKycFormBankAccount(currentUser?.farmerKyc?.bankAccountNo || '');
-                      setKycFormBankIfsc(currentUser?.farmerKyc?.bankIfsc || '');
-                      setKycFormBankName(currentUser?.farmerKyc?.bankName || 'State Bank of India');
-                      setIsKycModalOpen(true);
-                    }}
-                    className="text-[11px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <SlidersHorizontal className="w-3 h-3" />
-                    <span>{isHindi ? 'केवाईसी व बैंक बदलें' : 'Manage KYC & Bank'}</span>
-                  </button>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight mt-1.5">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight">
                   {isHindi ? `सुप्रभात, ${farmerName.split(' ')[0]}` : `Good morning, ${farmerName.split(' ')[0]}`}
                 </h1>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  {currentUser?.farmerKyc?.khasraNo ? `Khasra #${currentUser.farmerKyc.khasraNo} · ` : ''}
-                  {currentUser?.farmerKyc?.verifiedCluster || (isHindi ? 'फार्म क्लस्टर' : 'Farm Cluster')}
+                <p className="text-xs text-stone-500 mt-1 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  <span>{currentUser?.farmerKyc?.khasraNo ? `Khasra #${currentUser.farmerKyc.khasraNo} · ` : ''}</span>
+                  <span>{currentUser?.farmerKyc?.verifiedCluster || (isHindi ? 'फार्म क्लस्टर' : 'Farm Cluster')}</span>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsVoiceModalOpen(true)}
-                  className="px-3.5 py-2.5 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-700 hover:to-amber-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:shadow-md border border-amber-400/30"
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-700 hover:to-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm hover:shadow-md border border-amber-400/30 shrink-0 whitespace-nowrap"
                 >
-                  <Mic className="w-4 h-4 text-amber-100 animate-pulse" />
+                  <Mic className="w-4 h-4 text-amber-100 animate-pulse shrink-0" />
                   <span>{isHindi ? 'बोलकर फसल बेचें' : 'Kisan Vaani AI'}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200 shrink-0" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(true)}
-                  className="px-3.5 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  className="px-4 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-xs shrink-0 whitespace-nowrap"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4 shrink-0" />
                   <span>{isHindi ? 'फसल बेचें' : 'Sell Crop'}</span>
                 </button>
               </div>
@@ -589,7 +597,7 @@ export const FarmerDashboard: React.FC = () => {
               </div>
               <div className="text-xs text-stone-500">
                 {upcomingPickup
-                  ? `${upcomingPickup.quantityKg} kg ${upcomingPickup.productName} → ${upcomingPickup.buyerName} (Reefer #${upcomingPickup.vehicleId || 'DL-1L-4482'})`
+                  ? `${(upcomingPickup as any).quantityKg || upcomingPickup.quantity || 500} kg ${upcomingPickup.productName} → ${upcomingPickup.buyerName} (Reefer #${(upcomingPickup as any).vehicleId || upcomingPickup.vehicleNumber || 'DL-1L-4482'})`
                   : (isHindi ? 'वर्तमान में कोई आगामी पिकअप निर्धारित नहीं है' : 'No upcoming batch scheduled for dispatch')}
               </div>
             </div>
@@ -632,7 +640,7 @@ export const FarmerDashboard: React.FC = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Tile 1: Kisan Vaani */}
               <button
                 type="button"
@@ -695,6 +703,27 @@ export const FarmerDashboard: React.FC = () => {
                 </p>
                 <div className="text-[11px] text-blue-800 font-bold mt-2 flex items-center gap-1">
                   <span>{isHindi ? 'पासपोर्ट देखें' : 'View Passport'}</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </button>
+
+              {/* Tile 4: Mandi Arbitrage Matrix */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('produce')}
+                className="p-4 rounded-2xl bg-gradient-to-br from-purple-50 via-white to-purple-100/50 border border-purple-200 text-left hover:border-purple-300 transition-all cursor-pointer shadow-xs group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-700 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div className="font-bold text-stone-900 text-sm mt-2.5">
+                  {isHindi ? 'मंडी आर्बिट्राज मैट्रिक्स' : 'Mandi Arbitrage Matrix'}
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {isHindi ? 'आज़ादपुर व आगरा मंडी से लाइव तुलना — +₹380/क्विंटल' : 'Live e-NAM arbitrage vs Azadpur & Agra Mandis'}
+                </p>
+                <div className="text-[11px] text-purple-800 font-bold mt-2 flex items-center gap-1">
+                  <span>{isHindi ? 'तुलना देखें' : 'Compare Mandis'}</span>
                   <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                 </div>
               </button>
