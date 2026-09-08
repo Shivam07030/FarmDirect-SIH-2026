@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
+import { GoogleGenAI } from '@google/genai';
 import { pool, testConnection } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +20,8 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'farmdirect_sih_secret_key_2026';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.get('/api/health', async (req, res) => {
   const dbOk = await testConnection();
@@ -35,6 +37,99 @@ app.post('/api/webhook/deploy', (req, res) => {
   exec('/root/deploy.sh > /tmp/deploy.log 2>&1 &', (error) => {
     if (error) console.error('Deploy script error:', error);
   });
+});
+
+// AI Computer Vision Multimodal Produce Inspection (Google GenAI Gemini)
+app.post('/api/ai/grade-produce', async (req, res) => {
+  try {
+    const { imageBase64, cropHint, apiKey } = req.body;
+    const activeKey = apiKey || process.env.GEMINI_API_KEY;
+
+    if (!activeKey) {
+      return res.status(200).json({
+        success: false,
+        hasGemini: false,
+        message: 'No GEMINI_API_KEY configured. Fall back to local computer vision pipeline.',
+      });
+    }
+
+    if (!imageBase64) {
+      return res.status(400).json({ success: false, error: 'imageBase64 required' });
+    }
+
+    const base64Clean = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    const ai = new GoogleGenAI({ apiKey: activeKey });
+    const prompt = `You are a certified senior agricultural quality inspector adhering to APEDA, AGMARK, and Codex Alimentarius standards.
+Analyze this photo carefully.
+CRITICAL FIRST CHECK:
+Is this an actual photograph of harvested agricultural produce (such as tomatoes, potatoes, onions, grains, fruits, vegetables)?
+If the image shows a computer screenshot, a website form, paper documents, text, humans, cars, animals, electronics, or non-crop objects, you MUST classify it as NOT produce.
+
+Return ONLY a valid JSON object matching this exact structure:
+{
+  "isValidProduce": boolean,
+  "detectedType": "PRODUCE" | "DOCUMENT_SCREENSHOT" | "NON_PRODUCE",
+  "identifiedCrop": string,
+  "rejectionReason": string,
+  "rejectionReasonHindi": string,
+  "grade": "Grade A+ (Export Quality)" | "Grade A (Premium)" | "Grade B (Standard)" | "Grade C (Processing/Rejected)",
+  "gradeHindi": string,
+  "freshnessScore": number,
+  "defectPercentage": number,
+  "ripeness": "Firm Mature" | "Optimal Harvest Ripe" | "Peak Ready" | "Overripe" | "Underripe",
+  "ripenessHindi": string,
+  "shelfLifeColdDays": number,
+  "shelfLifeAmbientDays": number,
+  "colorUniformity": number,
+  "firmnessIndex": number,
+  "optimalTempC": number,
+  "humidityTarget": string,
+  "apedaCompliance": boolean,
+  "detectedFeatures": string[],
+  "detectedFeaturesHindi": string[]
+}`;
+
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: base64Clean } },
+            { text: prompt }
+          ]
+        }
+      ]
+    });
+
+    const text = result.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return res.json({
+        success: true,
+        hasGemini: true,
+        modelSource: 'GEMINI_2_FLASH_VISION',
+        data: parsed,
+      });
+    }
+
+    return res.json({
+      success: true,
+      hasGemini: true,
+      rawText: text,
+    });
+  } catch (err) {
+    console.error('Gemini Vision error in route:', err.message);
+    return res.status(200).json({
+      success: false,
+      hasGemini: false,
+      error: err.message,
+    });
+  }
 });
 
 // Dynamic Market Policy & Purchase Rationing Rules (Managed by Admin)
