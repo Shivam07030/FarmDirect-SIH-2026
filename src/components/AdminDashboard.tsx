@@ -24,7 +24,14 @@ import {
   SlidersHorizontal,
   Scale,
   Save,
-  RefreshCw
+  RefreshCw,
+  LifeBuoy,
+  UserX,
+  UserCheck,
+  Ban,
+  AlertTriangle,
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 import { LogisticsMap } from './LogisticsMap';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -45,7 +52,10 @@ export const AdminDashboard: React.FC = () => {
     activeTab, 
     setActiveTab,
     marketRules,
-    updateMarketRules
+    updateMarketRules,
+    tickets,
+    updateTicketStatus,
+    updateUserAccountStatus
   } = useApp();
 
   const [dbUsers, setDbUsers] = useState<any[]>([]);
@@ -230,6 +240,86 @@ export const AdminDashboard: React.FC = () => {
       );
     } finally {
       setActionInProgress(null);
+    }
+  };
+
+  // User Account Sanctions (Suspend / Ban / Reinstate)
+  const [sanctionModalUser, setSanctionModalUser] = useState<any | null>(null);
+  const [sanctionTargetStatus, setSanctionTargetStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'BANNED'>('SUSPENDED');
+  const [sanctionReason, setSanctionReason] = useState('');
+  const [isSanctionModalOpen, setIsSanctionModalOpen] = useState(false);
+  const [sanctionLoading, setSanctionLoading] = useState(false);
+
+  // Ticket Resolution
+  const [resolvingTicket, setResolvingTicket] = useState<any | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [ticketFilterStatus, setTicketFilterStatus] = useState<'ALL' | 'OPEN' | 'IN_INVESTIGATION' | 'RESOLVED'>('ALL');
+  const [ticketFilterCategory, setTicketFilterCategory] = useState<string>('ALL');
+
+  const handleOpenSanctionModal = (user: any, status: 'ACTIVE' | 'SUSPENDED' | 'BANNED') => {
+    setSanctionModalUser(user);
+    setSanctionTargetStatus(status);
+    setSanctionReason(
+      status === 'SUSPENDED'
+        ? 'Suspicious aggregator activity: Land title records do not match physical farm site.'
+        : status === 'BANNED'
+        ? 'Severe policy breach: Repeat quality adulteration or fraudulent claims.'
+        : ''
+    );
+    setIsSanctionModalOpen(true);
+  };
+
+  const handleApplySanction = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!sanctionModalUser) return;
+    setSanctionLoading(true);
+    try {
+      await updateUserAccountStatus(sanctionModalUser.id, sanctionTargetStatus, sanctionReason);
+      setKycQueue((prev) =>
+        prev.map((u) =>
+          u.id === sanctionModalUser.id
+            ? { ...u, accountStatus: sanctionTargetStatus, suspensionReason: sanctionReason }
+            : u
+        )
+      );
+      setDbUsers((prev) =>
+        prev.map((u) =>
+          u.id === sanctionModalUser.id
+            ? { ...u, accountStatus: sanctionTargetStatus, suspensionReason: sanctionReason }
+            : u
+        )
+      );
+      setIsSanctionModalOpen(false);
+      setSanctionModalUser(null);
+    } finally {
+      setSanctionLoading(false);
+    }
+  };
+
+  const handleOpenResolveTicket = (ticket: any) => {
+    setResolvingTicket(ticket);
+    setResolutionNotes(
+      ticket.category === 'COLD_CHAIN_TEMP_BREACH'
+        ? 'Logistics audit verified Reefer telemetry breach (+8.2°C). Full refund credited to buyer account from escrow.'
+        : ticket.category === 'DAMAGED_PRODUCE'
+        ? 'Inspection approved: 35 kg damaged crates replaced and ₹1,400 partial refund approved.'
+        : 'Investigation concluded. Escrow release adjusted.'
+    );
+    setIsResolveModalOpen(true);
+  };
+
+  const handleConfirmResolveTicket = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!resolvingTicket) return;
+    setResolveLoading(true);
+    try {
+      await updateTicketStatus(resolvingTicket.id, 'RESOLVED', resolutionNotes);
+      setIsResolveModalOpen(false);
+      setResolvingTicket(null);
+    } finally {
+      setResolveLoading(false);
     }
   };
 
@@ -683,6 +773,18 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
+                      {/* Account sanction badge */}
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                          user.accountStatus === 'SUSPENDED'
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : user.accountStatus === 'BANNED'
+                            ? 'bg-rose-100 text-rose-900 border-rose-300'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}
+                      >
+                        {user.accountStatus || 'ACTIVE'}
+                      </span>
                       <span
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
                           isVerified
@@ -699,6 +801,13 @@ export const AdminDashboard: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {user.suspensionReason && (
+                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span><strong>Sanction Note:</strong> {user.suspensionReason}</span>
+                    </div>
+                  )}
 
                   {/* KYC Data Payload Grid */}
                   {isFarmer ? (
@@ -783,6 +892,40 @@ export const AdminDashboard: React.FC = () => {
                           Reject
                         </button>
                       )}
+
+                      {/* Account Sanctions (Suspend / Ban / Reinstate) */}
+                      {(user.accountStatus === 'SUSPENDED' || user.accountStatus === 'BANNED') ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSanctionModal(user, 'ACTIVE')}
+                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          title="Restore full marketplace privileges"
+                        >
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Reinstate</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1 border-l border-stone-200 pl-2 ml-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(user, 'SUSPENDED')}
+                            className="px-2.5 py-1.5 bg-stone-50 hover:bg-amber-50 hover:text-amber-800 border border-stone-200 hover:border-amber-200 text-stone-600 font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Temporarily freeze login, buying, and product listings"
+                          >
+                            <UserX className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Suspend</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(user, 'BANNED')}
+                            className="px-2.5 py-1.5 bg-stone-50 hover:bg-rose-50 hover:text-rose-800 border border-stone-200 hover:border-rose-200 text-stone-600 font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Permanently ban bad actor from platform"
+                          >
+                            <Ban className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Ban</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -858,14 +1001,62 @@ export const AdminDashboard: React.FC = () => {
               <h2 className="text-xs uppercase tracking-wider font-semibold text-stone-400">Farmers & FPOs</h2>
               <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100 overflow-hidden">
                 {farmersList.map((f) => (
-                  <div key={f.name} className="p-3.5 flex items-center justify-between text-xs">
+                  <div key={f.name || f.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div>
-                      <div className="font-semibold text-stone-900">{f.name} · {f.location}</div>
-                      <div className="text-stone-500">{f.crops || 'Tomato, Potato, Wheat'} · {f.phone}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-stone-900">{f.name}</span>
+                        <span className="text-stone-400 font-mono text-[11px]">· {f.location}</span>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            f.accountStatus === 'SUSPENDED'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : f.accountStatus === 'BANNED'
+                              ? 'bg-rose-100 text-rose-900 border-rose-300'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          }`}
+                        >
+                          {f.accountStatus || 'ACTIVE'}
+                        </span>
+                      </div>
+                      <div className="text-stone-500 mt-0.5">{f.crops || 'Tomato, Potato, Wheat'} · {f.phone}</div>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium">
-                      {f.verificationStatus || 'VERIFIED'}
-                    </span>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium">
+                        {f.verificationStatus || 'VERIFIED'}
+                      </span>
+                      {(f.accountStatus === 'SUSPENDED' || f.accountStatus === 'BANNED') ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSanctionModal(f, 'ACTIVE')}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                        >
+                          <UserCheck className="w-3 h-3 text-emerald-700" />
+                          <span>Reinstate</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(f, 'SUSPENDED')}
+                            className="px-2 py-1 bg-stone-50 hover:bg-amber-50 hover:text-amber-800 border border-stone-200 text-stone-600 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                            title="Suspend user"
+                          >
+                            <UserX className="w-3 h-3 text-amber-600" />
+                            <span>Suspend</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(f, 'BANNED')}
+                            className="px-2 py-1 bg-stone-50 hover:bg-rose-50 hover:text-rose-800 border border-stone-200 text-stone-600 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                            title="Ban user"
+                          >
+                            <Ban className="w-3 h-3 text-rose-600" />
+                            <span>Ban</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -875,18 +1066,321 @@ export const AdminDashboard: React.FC = () => {
               <h2 className="text-xs uppercase tracking-wider font-semibold text-stone-400">Commercial Buyers</h2>
               <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100 overflow-hidden">
                 {buyersList.map((b) => (
-                  <div key={b.name} className="p-3.5 flex items-center justify-between text-xs">
+                  <div key={b.name || b.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div>
-                      <div className="font-semibold text-stone-900">{b.name} · {b.location}</div>
-                      <div className="text-stone-500">GSTIN: {b.gstin || 'Pending GST Registration'} · {b.phone}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-stone-900">{b.name}</span>
+                        <span className="text-stone-400 font-mono text-[11px]">· {b.location}</span>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            b.accountStatus === 'SUSPENDED'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : b.accountStatus === 'BANNED'
+                              ? 'bg-rose-100 text-rose-900 border-rose-300'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          }`}
+                        >
+                          {b.accountStatus || 'ACTIVE'}
+                        </span>
+                      </div>
+                      <div className="text-stone-500 mt-0.5">GSTIN: {b.gstin || 'Pending GST Registration'} · {b.phone}</div>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium">
-                      {b.verificationStatus || 'VERIFIED'}
-                    </span>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium">
+                        {b.verificationStatus || 'VERIFIED'}
+                      </span>
+                      {(b.accountStatus === 'SUSPENDED' || b.accountStatus === 'BANNED') ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSanctionModal(b, 'ACTIVE')}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                        >
+                          <UserCheck className="w-3 h-3 text-emerald-700" />
+                          <span>Reinstate</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(b, 'SUSPENDED')}
+                            className="px-2 py-1 bg-stone-50 hover:bg-amber-50 hover:text-amber-800 border border-stone-200 text-stone-600 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                            title="Suspend user"
+                          >
+                            <UserX className="w-3 h-3 text-amber-600" />
+                            <span>Suspend</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSanctionModal(b, 'BANNED')}
+                            className="px-2 py-1 bg-stone-50 hover:bg-rose-50 hover:text-rose-800 border border-stone-200 text-stone-600 font-medium rounded-lg text-xs cursor-pointer flex items-center gap-1"
+                            title="Ban user"
+                          >
+                            <Ban className="w-3 h-3 text-rose-600" />
+                            <span>Ban</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. DISPUTES & GRIEVANCES TICKETS DESK */}
+      {activeTab === 'tickets' && (
+        <div className="space-y-6">
+          <div className="border-b border-stone-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <LifeBuoy className="w-5 h-5 text-amber-700" />
+                <h1 className="text-2xl font-semibold text-stone-900 font-serif">
+                  Dispute & Grievance Resolution Desk
+                </h1>
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Investigate and settle quality rejections, cold-chain temperature breaches, weighment disputes, and escrow claims.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={loadData}
+                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-stone-600" />
+                <span>Refresh Desk</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Ticket Statistics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 bg-white border border-stone-200 rounded-xl">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-400">Total Grievances</div>
+              <div className="text-2xl font-mono font-bold text-stone-900 mt-1">{tickets.length}</div>
+              <div className="text-[11px] text-stone-500 mt-0.5">Logged across network</div>
+            </div>
+
+            <div className="p-4 bg-white border border-stone-200 rounded-xl">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-amber-700">Open Claims</div>
+              <div className="text-2xl font-mono font-bold text-amber-800 mt-1">
+                {tickets.filter((t) => t.status === 'OPEN').length}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">Awaiting initial triage</div>
+            </div>
+
+            <div className="p-4 bg-white border border-stone-200 rounded-xl">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-blue-700">In Investigation</div>
+              <div className="text-2xl font-mono font-bold text-blue-800 mt-1">
+                {tickets.filter((t) => t.status === 'IN_INVESTIGATION').length}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">Telemetry & audit active</div>
+            </div>
+
+            <div className="p-4 bg-white border border-stone-200 rounded-xl">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-emerald-700">Resolved & Settled</div>
+              <div className="text-2xl font-mono font-bold text-emerald-800 mt-1">
+                {tickets.filter((t) => t.status === 'RESOLVED').length}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">Escrow adjusted / reimbursed</div>
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-3 text-xs">
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
+              {(['ALL', 'OPEN', 'IN_INVESTIGATION', 'RESOLVED'] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setTicketFilterStatus(st)}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    ticketFilterStatus === st
+                      ? 'bg-[#0E3B2B] text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  {st === 'ALL'
+                    ? `All Disputes (${tickets.length})`
+                    : st === 'OPEN'
+                    ? `Open (${tickets.filter((t) => t.status === 'OPEN').length})`
+                    : st === 'IN_INVESTIGATION'
+                    ? `Investigating (${tickets.filter((t) => t.status === 'IN_INVESTIGATION').length})`
+                    : `Resolved (${tickets.filter((t) => t.status === 'RESOLVED').length})`}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-stone-500 text-xs">Category:</span>
+              <select
+                value={ticketFilterCategory}
+                onChange={(e) => setTicketFilterCategory(e.target.value)}
+                className="px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-xs text-stone-800 focus:outline-none focus:border-[#0E3B2B]"
+              >
+                <option value="ALL">All Categories</option>
+                <option value="COLD_CHAIN_TEMP_BREACH">Cold-Chain Reefer Breach</option>
+                <option value="DAMAGED_PRODUCE">Damaged Produce / Rotten Crates</option>
+                <option value="ESCROW_PAYMENT_DELAY">Escrow Payment Delay</option>
+                <option value="WEIGHMENT_DISCREPANCY">Weighment Discrepancy</option>
+                <option value="OTHER">General Inquiry</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tickets Queue Cards */}
+          <div className="space-y-3">
+            {tickets
+              .filter((t) => {
+                if (ticketFilterStatus !== 'ALL' && t.status !== ticketFilterStatus) return false;
+                if (ticketFilterCategory !== 'ALL' && t.category !== ticketFilterCategory) return false;
+                return true;
+              })
+              .map((ticket) => {
+                const isOpen = ticket.status === 'OPEN';
+                const isInvestigating = ticket.status === 'IN_INVESTIGATION';
+                const isResolved = ticket.status === 'RESOLVED';
+
+                return (
+                  <div
+                    key={ticket.id}
+                    className="p-4 sm:p-5 bg-white border border-stone-200 rounded-xl space-y-3 transition-shadow hover:shadow-xs"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded">
+                            {ticket.ticketNumber || ticket.id}
+                          </span>
+                          <span className="font-semibold text-stone-900 text-sm">{ticket.subject}</span>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                              ticket.priority === 'CRITICAL'
+                                ? 'bg-rose-100 text-rose-900 border-rose-300'
+                                : ticket.priority === 'HIGH'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-stone-100 text-stone-700 border-stone-200'
+                            }`}
+                          >
+                            {ticket.priority} Priority
+                          </span>
+                        </div>
+                        <div className="text-xs text-stone-500 mt-1 flex items-center gap-3 flex-wrap">
+                          <span>
+                            Raised by: <strong className="text-stone-800">{ticket.userName || 'Anonymous'}</strong> ({ticket.userRole})
+                          </span>
+                          {ticket.orderId && (
+                            <span className="font-mono bg-stone-50 px-1.5 py-0.5 rounded border border-stone-200">
+                              Order #{ticket.orderId}
+                            </span>
+                          )}
+                          <span>{ticket.createdAt}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 border ${
+                            isResolved
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : isInvestigating
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {isResolved && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />}
+                          {isInvestigating && <Loader2 className="w-3.5 h-3.5 text-blue-700 animate-spin" />}
+                          {isOpen && <AlertCircle className="w-3.5 h-3.5 text-amber-700" />}
+                          <span>{ticket.status.replace('_', ' ')}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-stone-700 bg-stone-50 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
+                      {ticket.description}
+                    </div>
+
+                    {isResolved && ticket.resolution && (
+                      <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg text-xs text-emerald-950 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                          <Check className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Official Admin Resolution & Settlement:</span>
+                        </div>
+                        <p className="leading-relaxed pl-5">{ticket.resolution}</p>
+                        {ticket.resolvedAt && (
+                          <div className="text-[10px] text-emerald-700 pl-5 font-mono">
+                            Settled on {ticket.resolvedAt}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Controls */}
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <span className="text-[11px] text-stone-400">
+                        Category: {ticket.category.replace(/_/g, ' ')}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {isOpen && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateTicketStatus(
+                                ticket.id,
+                                'IN_INVESTIGATION',
+                                undefined,
+                                'Assigned to logistics telemetry inspection team'
+                              )
+                            }
+                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <Loader2 className="w-3 h-3 text-blue-700" />
+                            <span>Start Investigation</span>
+                          </button>
+                        )}
+
+                        {!isResolved && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenResolveTicket(ticket)}
+                              className="px-3 py-1.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Settle Claim / Refund</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateTicketStatus(
+                                  ticket.id,
+                                  'RESOLVED',
+                                  'Claim dismissed after inspection: Produce quality and temperature verified within standard tolerance limits.'
+                                )
+                              }
+                              className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium rounded-lg transition-colors cursor-pointer"
+                            >
+                              Dismiss
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {tickets.length === 0 && (
+              <div className="py-12 text-center text-xs text-stone-400 bg-white rounded-xl border border-stone-200">
+                No support or grievance tickets currently open.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1770,6 +2264,150 @@ export const AdminDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* USER ACCOUNT SANCTION MODAL (Suspend / Ban / Reinstate) */}
+      {isSanctionModalOpen && sanctionModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                {sanctionTargetStatus === 'SUSPENDED' && <UserX className="w-5 h-5 text-amber-600" />}
+                {sanctionTargetStatus === 'BANNED' && <Ban className="w-5 h-5 text-rose-600" />}
+                {sanctionTargetStatus === 'ACTIVE' && <UserCheck className="w-5 h-5 text-emerald-600" />}
+                <h3 className="font-semibold text-stone-900 text-base font-serif">
+                  {sanctionTargetStatus === 'SUSPENDED'
+                    ? 'Suspend User Account'
+                    : sanctionTargetStatus === 'BANNED'
+                    ? 'Permanently Ban User'
+                    : 'Reinstate User Account'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSanctionModalOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-stone-50 rounded-xl space-y-1 text-xs text-stone-700">
+              <div><strong>Entity:</strong> {sanctionModalUser.name} ({sanctionModalUser.role})</div>
+              <div><strong>Phone:</strong> {sanctionModalUser.phone || 'N/A'} · <strong>ID:</strong> {sanctionModalUser.id}</div>
+              <div>
+                <strong>Effect:</strong> {sanctionTargetStatus === 'SUSPENDED' ? 'User login via OTP is blocked and their listed produce is paused.' : sanctionTargetStatus === 'BANNED' ? 'User is permanently banned from FarmDirect.' : 'Full marketplace privileges restored.'}
+              </div>
+            </div>
+
+            {sanctionTargetStatus !== 'ACTIVE' && (
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-stone-700">Official Sanction Reason</label>
+                <textarea
+                  rows={3}
+                  value={sanctionReason}
+                  onChange={(e) => setSanctionReason(e.target.value)}
+                  placeholder="Reason for suspension or ban..."
+                  className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-[#0E3B2B]"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsSanctionModalOpen(false)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sanctionLoading}
+                onClick={() => handleApplySanction()}
+                className={`flex-1 py-2.5 text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                  sanctionTargetStatus === 'SUSPENDED'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : sanctionTargetStatus === 'BANNED'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-[#0E3B2B] hover:bg-[#144E39]'
+                }`}
+              >
+                {sanctionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>
+                  {sanctionTargetStatus === 'SUSPENDED'
+                    ? 'Confirm Suspension'
+                    : sanctionTargetStatus === 'BANNED'
+                    ? 'Confirm Ban'
+                    : 'Reinstate User'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESOLVE TICKET MODAL */}
+      {isResolveModalOpen && resolvingTicket && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-semibold text-stone-900 text-base font-serif">
+                  Settle Claim & Resolve Ticket
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResolveModalOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-stone-50 rounded-xl space-y-1 text-xs text-stone-700">
+              <div><strong>Ticket:</strong> {resolvingTicket.ticketNumber || resolvingTicket.id}</div>
+              <div><strong>Subject:</strong> {resolvingTicket.subject}</div>
+              <div><strong>Claimant:</strong> {resolvingTicket.userName} ({resolvingTicket.userRole})</div>
+              {resolvingTicket.orderId && <div><strong>Order ID:</strong> #{resolvingTicket.orderId}</div>}
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-stone-700">
+                Resolution & Financial Settlement Terms
+              </label>
+              <textarea
+                rows={4}
+                value={resolutionNotes}
+                onChange={(e) => setResolutionNotes(e.target.value)}
+                placeholder="Detail escrow adjustment, compensation release, or closure rationale..."
+                required
+                className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-[#0E3B2B]"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsResolveModalOpen(false)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resolveLoading || !resolutionNotes.trim()}
+                onClick={() => handleConfirmResolveTicket()}
+                className="flex-1 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {resolveLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Approve & Settle</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

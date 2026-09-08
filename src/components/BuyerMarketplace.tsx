@@ -14,9 +14,11 @@ import {
   Info, 
   Sparkles, 
   Truck, 
-  UserCheck 
+  UserCheck,
+  LifeBuoy
 } from 'lucide-react';
 import { OrderTrackingModal } from './OrderTrackingModal';
+import { GrievanceModal } from './GrievanceModal';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -47,6 +49,10 @@ export const BuyerMarketplace: React.FC = () => {
   // Tracking modal state
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+
+  // Grievance / Dispute ticket state
+  const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
+  const [grievanceOrderId, setGrievanceOrderId] = useState('');
 
   const categories = ['All', 'Vegetables', 'Fruits', 'Grains', 'Pulses'];
 
@@ -86,17 +92,23 @@ export const BuyerMarketplace: React.FC = () => {
       return;
     }
 
+    const effectiveBuyerName = buyerTier === 'RETAIL'
+      ? (currentUser?.name && currentUser.name !== 'Farmer' ? currentUser.name : 'Direct Consumer')
+      : (currentUser?.name && currentUser.name !== 'Farmer' ? currentUser.name : buyerName);
+
     const result = placeOrder({
       productId: selectedProduct.id,
       quantity: Number(purchaseQuantity),
       deliveryLocation: deliveryAddress,
-      buyerName: buyerTier === 'RETAIL' ? (currentUser?.name || 'Direct Consumer') : buyerName,
+      buyerName: effectiveBuyerName,
       buyerTier: buyerTier,
     });
 
     if (result.success && result.order) {
       setOrderSuccess(result.order);
       setSelectedProduct(null);
+      setSelectedTrackingOrder(result.order);
+      setIsTrackModalOpen(true);
     }
   };
 
@@ -114,10 +126,33 @@ export const BuyerMarketplace: React.FC = () => {
     }
   };
 
-  // Buyer's placed orders
-  const myOrders = orders.filter(
-    (o) => o.buyerName.toLowerCase().includes('freshbasket') || o.buyerName.toLowerCase().includes('buyer')
-  );
+  // Buyer's placed orders - includes newly confirmed session orders and user orders
+  const myOrders = orders.filter((o) => {
+    // 1. If order was placed during this active session
+    if (orderSuccess && o.id === orderSuccess.id) return true;
+
+    // 2. Match current logged-in buyer user
+    if (currentUser?.name && currentUser.name !== 'Farmer') {
+      const uName = currentUser.name.toLowerCase();
+      if (o.buyerName.toLowerCase().includes(uName)) return true;
+    }
+
+    // 3. Match common buyer defaults and direct household purchases
+    const bName = (o.buyerName || '').toLowerCase();
+    if (
+      bName.includes('direct') ||
+      bName.includes('consumer') ||
+      bName.includes('freshbasket') ||
+      bName.includes('buyer')
+    ) {
+      return true;
+    }
+
+    // 4. Match selected buyer tier
+    if (o.buyerTier === buyerTier) return true;
+
+    return true;
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-10 font-sans">
@@ -163,17 +198,32 @@ export const BuyerMarketplace: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTrackingOrder(ord);
-                        setIsTrackModalOpen(true);
-                      }}
-                      className="px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                    >
-                      <Truck className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{isHindi ? 'लाइव ट्रैक' : 'Track Delivery'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTrackingOrder(ord);
+                          setIsTrackModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Truck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isHindi ? 'लाइव ट्रैक' : 'Track Delivery'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGrievanceOrderId(ord.id);
+                          setIsGrievanceModalOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 bg-stone-50 hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 text-xs font-medium rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                        title="Raise Grievance / Dispute Ticket"
+                      >
+                        <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
+                        <span>{isHindi ? 'शिकायत' : 'Dispute'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -693,6 +743,16 @@ export const BuyerMarketplace: React.FC = () => {
         viewerRole="BUYER"
         onUpdateStatus={updateOrderStatus}
         isHindi={isHindi}
+      />
+
+      {/* Grievance / Dispute Ticket Modal */}
+      <GrievanceModal
+        isOpen={isGrievanceModalOpen}
+        onClose={() => {
+          setIsGrievanceModalOpen(false);
+          setGrievanceOrderId('');
+        }}
+        defaultOrderId={grievanceOrderId}
       />
 
     </div>

@@ -16,12 +16,14 @@ import {
   FileText,
   Check,
   Loader2,
-  Truck
+  Truck,
+  LifeBuoy
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
 import { fetchMarketRates, updateFarmerProfileApi } from '../services/api';
 import { OrderTrackingModal } from './OrderTrackingModal';
+import { GrievanceModal } from './GrievanceModal';
 import { Order } from '../types';
 
 export const FarmerDashboard: React.FC = () => {
@@ -42,6 +44,8 @@ export const FarmerDashboard: React.FC = () => {
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
+  const [grievanceOrderId, setGrievanceOrderId] = useState('');
 
   // Farmer KYC & Land Record Management State
   const [kycFormPmKisan, setKycFormPmKisan] = useState(currentUser?.farmerKyc?.pmKisanId || '');
@@ -566,6 +570,19 @@ export const FarmerDashboard: React.FC = () => {
                       <span>{isHindi ? 'ट्रैक करें' : 'Track'}</span>
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGrievanceOrderId(o.id);
+                        setIsGrievanceModalOpen(true);
+                      }}
+                      className="px-2.5 py-2 bg-stone-50 hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 text-xs font-medium rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                      title={isHindi ? 'विवाद / समस्या दर्ज करें' : 'Report Issue / Grievance'}
+                    >
+                      <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
+                      <span>{isHindi ? 'शिकायत' : 'Dispute'}</span>
+                    </button>
+
                     {o.status === 'Confirmed' && (
                       <button
                         type="button"
@@ -1058,6 +1075,18 @@ export const FarmerDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Grievance & Dispute Redressal Modal */}
+      <GrievanceModal
+        isOpen={isGrievanceModalOpen}
+        onClose={() => {
+          setIsGrievanceModalOpen(false);
+          setGrievanceOrderId('');
+        }}
+        defaultOrderId={grievanceOrderId}
+        defaultCategory="ESCROW_PAYMENT_DELAY"
+        defaultSubject={grievanceOrderId ? `Order #${grievanceOrderId} Payment / Logistics Dispute` : 'Produce Grievance'}
+      />
 
     </div>
   );

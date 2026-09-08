@@ -14,7 +14,8 @@ import {
   Globe,
   Download,
   ShieldCheck,
-  SlidersHorizontal
+  SlidersHorizontal,
+  LifeBuoy
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -63,6 +64,7 @@ export const Navbar: React.FC = () => {
         { id: 'overview', label: 'Overview', icon: Home },
         { id: 'policy', label: 'Rationing Policy', icon: SlidersHorizontal },
         { id: 'kyc', label: 'Compliance & KYC', icon: ShieldCheck },
+        { id: 'tickets', label: 'Disputes & Tickets', icon: LifeBuoy },
         { id: 'orders', label: 'Orders', icon: ShoppingBag },
         { id: 'logistics', label: 'Logistics', icon: Truck },
         { id: 'users', label: 'Users', icon: Users },
@@ -232,7 +234,7 @@ export const Navbar: React.FC = () => {
       </header>
 
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 px-2 py-1 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-        <div className="grid grid-cols-4 gap-1">
+        <div className={role === 'ADMIN' ? "flex items-center justify-between overflow-x-auto gap-1 py-0.5 no-scrollbar" : "grid grid-cols-4 gap-1"}>
           {tabs.map((t) => {
             const Icon = t.icon;
             const isActive = activeTab === t.id;
@@ -243,7 +245,9 @@ export const Navbar: React.FC = () => {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveTab(t.id)}
-                className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all relative ${
+                className={`flex flex-col items-center justify-center py-2 px-1.5 rounded-xl transition-all relative shrink-0 ${
+                  role === 'ADMIN' ? 'min-w-[58px]' : ''
+                } ${
                   isActive
                     ? 'text-[#0E3B2B] font-bold bg-emerald-50/60'
                     : 'text-stone-500 hover:text-stone-800'
@@ -257,7 +261,7 @@ export const Navbar: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] mt-1 leading-none tracking-tight">
+                <span className="text-[10px] sm:text-[11px] mt-1 leading-none tracking-tight truncate max-w-[62px]">
                   {t.label}
                 </span>
               </button>

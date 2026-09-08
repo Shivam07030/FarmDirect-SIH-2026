@@ -155,6 +155,8 @@ export interface UserProfile {
   role: UserRole;
   location: string;
   verificationStatus: VerificationStatus;
+  accountStatus?: AccountStatus;
+  suspensionReason?: string;
   farmerKyc?: FarmerKycData;
   buyerKyc?: BuyerKycData;
   buyerTier?: BuyerTier;
@@ -168,5 +170,38 @@ export interface MarketRules {
   wholesalePerKgFreight: number;
   isRationingActive: boolean;
   rationingReason: string;
+  updatedAt?: string;
+}
+
+export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+
+export type TicketCategory = 
+  | 'DAMAGED_PRODUCE'
+  | 'COLD_CHAIN_TEMP_BREACH'
+  | 'PAYMENT_ESCROW'
+  | 'WEIGHMENT_DISCREPANCY'
+  | 'MIDDLEMAN_SUSPICION'
+  | 'DELIVERY_DELAY'
+  | 'OTHER';
+
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type TicketStatus = 'OPEN' | 'IN_INVESTIGATION' | 'RESOLVED' | 'REJECTED';
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  userId: string;
+  userName: string;
+  userRole: 'FARMER' | 'BUYER';
+  orderId?: string;
+  subject: string;
+  category: TicketCategory;
+  description: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  adminNotes?: string;
+  resolutionSummary?: string;
+  createdAt: string;
   updatedAt?: string;
 }

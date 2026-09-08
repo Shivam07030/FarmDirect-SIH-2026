@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, UserRole, OrderStatus, UserProfile, BuyerTier, MarketRules } from '../types';
+import { 
+  Product, 
+  Order, 
+  UserRole, 
+  OrderStatus, 
+  UserProfile, 
+  BuyerTier, 
+  MarketRules, 
+  SupportTicket, 
+  AccountStatus 
+} from '../types';
 import { 
   fetchProducts, 
   createProductListing, 
@@ -7,7 +17,11 @@ import {
   submitOrder, 
   updateOrderStatusApi,
   fetchMarketRulesApi,
-  updateMarketRulesApi
+  updateMarketRulesApi,
+  fetchTicketsApi,
+  createTicketApi,
+  updateTicketStatusApi,
+  updateUserAccountStatusApi
 } from '../services/api';
 
 export type AppView = 
@@ -54,6 +68,17 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   marketRules: MarketRules;
   updateMarketRules: (rules: Partial<MarketRules>) => Promise<boolean>;
+  tickets: SupportTicket[];
+  fetchTickets: () => Promise<void>;
+  createTicket: (data: {
+    orderId?: string;
+    subject: string;
+    category: string;
+    description: string;
+    priority?: string;
+  }) => Promise<SupportTicket | null>;
+  updateTicketStatus: (ticketId: string, status?: string, resolution?: string, notes?: string) => Promise<boolean>;
+  updateUserAccountStatus: (userId: string, accountStatus: AccountStatus, reason?: string) => Promise<boolean>;
   resetDemoData: () => void;
   showJudgeGuide: boolean;
   setShowJudgeGuide: (show: boolean) => void;
@@ -161,6 +186,147 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Retail Cap: ${rules.retailMaxQtyKg ?? marketRules.retailMaxQtyKg} kg · Wholesale MOQ: ${rules.wholesaleMinQtyKg ?? marketRules.wholesaleMinQtyKg} kg`
     );
     return res.success;
+  };
+
+  const [tickets, setTickets] = useState<SupportTicket[]>([
+    {
+      id: 'TKT-001',
+      ticketNumber: 'TKT-8841',
+      userId: 'USER-002',
+      userName: 'FreshBasket Supermarket',
+      userRole: 'BUYER',
+      orderId: 'ORD-8812',
+      subject: 'Temperature spike during Agra-Mathura reefer transit',
+      category: 'COLD_CHAIN_TEMP_BREACH',
+      description: 'Sensor logged 7.8°C at Mathura cross-dock for 45 minutes exceeding the 6.0°C fresh limit. Crates show slight condensation.',
+      priority: 'HIGH',
+      status: 'IN_INVESTIGATION',
+      adminNotes: 'Contacted cold-chain driver Manpreet Singh. Telematics log requested from vehicle DL-1L-4482.',
+      resolutionSummary: undefined,
+      createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    },
+    {
+      id: 'TKT-002',
+      ticketNumber: 'TKT-8842',
+      userId: 'USER-001',
+      userName: 'Rajesh Kumar',
+      userRole: 'FARMER',
+      orderId: 'ORD-8813',
+      subject: 'Escrow settlement confirmation delay',
+      category: 'PAYMENT_ESCROW',
+      description: 'Delivery OTP was verified at Azadpur Mandi terminal yesterday, awaiting direct DBT bank confirmation.',
+      priority: 'MEDIUM',
+      status: 'RESOLVED',
+      adminNotes: 'Bank UTR #UTIB0002910 verified. Settlement credited to Canara Bank account.',
+      resolutionSummary: '₹2,020 Escrow payout released to farmer account',
+      createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    }
+  ]);
+
+  const fetchTickets = async () => {
+    try {
+      const data = await fetchTicketsApi();
+      if (data && data.length > 0) {
+        setTickets(data);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const createTicket = async (ticketData: {
+    orderId?: string;
+    subject: string;
+    category: string;
+    description: string;
+    priority?: string;
+  }): Promise<SupportTicket | null> => {
+    const uId = currentUser?.id || (role === 'FARMER' ? 'USER-001' : 'USER-002');
+    const uName = currentUser?.name || (role === 'FARMER' ? farmerName : buyerName);
+    const uRole = (role === 'FARMER' ? 'FARMER' : 'BUYER') as 'FARMER' | 'BUYER';
+
+    const fallbackTkt: SupportTicket = {
+      id: `TKT-${Date.now()}`,
+      ticketNumber: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+      userId: uId,
+      userName: uName,
+      userRole: uRole,
+      orderId: ticketData.orderId,
+      subject: ticketData.subject,
+      category: ticketData.category as any,
+      description: ticketData.description,
+      priority: (ticketData.priority || 'MEDIUM') as any,
+      status: 'OPEN',
+      createdAt: new Date().toISOString()
+    };
+
+    setTickets((prev) => [fallbackTkt, ...prev]);
+
+    try {
+      const res = await createTicketApi({
+        userId: uId,
+        userName: uName,
+        userRole: uRole,
+        ...ticketData,
+      });
+      if (res) {
+        setTickets((prev) => prev.map((t) => (t.id === fallbackTkt.id ? res : t)));
+        showToast('success', 'Grievance Ticket Registered', `Ticket #${res.ticketNumber} logged. Admin dispute desk alerted.`);
+        return res;
+      }
+    } catch {}
+
+    showToast('success', 'Grievance Ticket Registered', `Ticket #${fallbackTkt.ticketNumber} logged. Admin dispute desk alerted.`);
+    return fallbackTkt;
+  };
+
+  const updateTicketStatus = async (
+    ticketId: string,
+    status?: string,
+    resolution?: string,
+    notes?: string
+  ): Promise<boolean> => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId || t.ticketNumber === ticketId
+          ? {
+              ...t,
+              status: (status as any) || t.status,
+              resolutionSummary: resolution !== undefined ? resolution : t.resolutionSummary,
+              adminNotes: notes !== undefined ? notes : t.adminNotes,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+
+    try {
+      await updateTicketStatusApi(ticketId, status, resolution, notes);
+    } catch {}
+
+    showToast('success', 'Ticket Status Updated', `Grievance #${ticketId} updated to ${status}.`);
+    return true;
+  };
+
+  const updateUserAccountStatus = async (
+    userId: string,
+    accountStatus: AccountStatus,
+    reason?: string
+  ): Promise<boolean> => {
+    const res = await updateUserAccountStatusApi(userId, accountStatus, reason);
+    if (res.success) {
+      showToast(
+        accountStatus === 'ACTIVE' ? 'success' : 'warning',
+        `Account Sanction: ${accountStatus}`,
+        `User ${userId} set to ${accountStatus}.`
+      );
+      return true;
+    }
+    return false;
   };
 
   const setIsAuthenticated = (auth: boolean) => {
@@ -533,6 +699,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateOrderStatus,
         marketRules,
         updateMarketRules,
+        tickets,
+        fetchTickets,
+        createTicket,
+        updateTicketStatus,
+        updateUserAccountStatus,
         resetDemoData,
         showJudgeGuide,
         setShowJudgeGuide,

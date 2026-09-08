@@ -1,4 +1,4 @@
-import { Product, Order, OrderStatus, MarketRules } from '../types';
+import { Product, Order, OrderStatus, MarketRules, SupportTicket, AccountStatus } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -369,6 +369,83 @@ export async function updateMarketRulesApi(rules: Partial<MarketRules>): Promise
         return await res.json();
     } catch {
         return { success: false };
+    }
+}
+
+export async function updateUserAccountStatusApi(
+    userId: string,
+    accountStatus: AccountStatus,
+    reason?: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/users/${userId}/account-status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountStatus, reason }),
+        });
+        return await res.json();
+    } catch {
+        return { success: false, error: 'Failed to communicate with compliance API' };
+    }
+}
+
+export async function fetchTicketsApi(params?: {
+    userId?: string;
+    status?: string;
+    role?: string;
+}): Promise<SupportTicket[]> {
+    try {
+        const search = new URLSearchParams();
+        if (params?.userId) search.set('userId', params.userId);
+        if (params?.status) search.set('status', params.status);
+        if (params?.role) search.set('role', params.role);
+        const url = `${API_BASE}/api/tickets${search.toString() ? `?${search.toString()}` : ''}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch tickets');
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
+export async function createTicketApi(ticketData: {
+    userId: string;
+    userName?: string;
+    userRole?: 'FARMER' | 'BUYER';
+    orderId?: string;
+    subject: string;
+    category: string;
+    description: string;
+    priority?: string;
+}): Promise<SupportTicket | null> {
+    try {
+        const res = await fetch(`${API_BASE}/api/tickets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ticketData),
+        });
+        if (!res.ok) throw new Error('Failed to create ticket');
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
+export async function updateTicketStatusApi(
+    ticketId: string,
+    status?: string,
+    resolutionSummary?: string,
+    adminNotes?: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/resolve`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, resolutionSummary, adminNotes }),
+        });
+        return await res.json();
+    } catch {
+        return { success: false, error: 'Failed to update ticket' };
     }
 }
 

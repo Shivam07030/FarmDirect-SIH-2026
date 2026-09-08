@@ -15,9 +15,11 @@ import {
   Package, 
   Navigation,
   RotateCcw,
-  MessageSquare
+  MessageSquare,
+  LifeBuoy
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
+import { GrievanceModal } from './GrievanceModal';
 
 interface OrderTrackingModalProps {
   order: Order | null;
@@ -38,6 +40,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
 }) => {
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
+  const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -540,17 +543,39 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3 border-t border-stone-200 bg-stone-50 flex items-center justify-end">
+        <div className="px-5 py-3 border-t border-stone-200 bg-stone-50 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setIsGrievanceOpen(true)}
+            className="px-3 py-2 bg-white hover:bg-rose-50 text-stone-700 hover:text-rose-700 border border-stone-200 hover:border-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+          >
+            <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
+            <span>{isHindi ? 'शिकायत / विवाद दर्ज करें' : 'Raise Dispute Ticket'}</span>
+          </button>
+
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
           >
             {isHindi ? 'बंद करें' : 'Close Tracker'}
           </button>
         </div>
 
       </div>
+
+      {/* Embedded Grievance / Dispute Modal */}
+      <GrievanceModal
+        isOpen={isGrievanceOpen}
+        onClose={() => setIsGrievanceOpen(false)}
+        defaultOrderId={order.id}
+        defaultCategory={temperature > 7.0 ? 'COLD_CHAIN_TEMP_BREACH' : 'DAMAGED_PRODUCE'}
+        defaultSubject={
+          temperature > 7.0
+            ? `Cold-Chain Temperature Warning (+${temperature}°C recorded on ${vehicleNo})`
+            : `Order #${order.id} Quality & Delivery Issue`
+        }
+      />
     </div>
   );
 };

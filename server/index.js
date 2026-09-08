@@ -301,6 +301,14 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     let [userRows] = await pool.query('SELECT * FROM users WHERE phone = ?', [phone]);
     let user = userRows[0];
 
+    if (user && user.account_status && user.account_status !== 'ACTIVE') {
+      const isBanned = user.account_status === 'BANNED';
+      const label = isBanned ? 'permanently banned' : 'suspended';
+      return res.status(403).json({
+        error: `Account Restricted: Your account has been ${label} by the Marketplace Compliance Authority. Reason: ${user.suspension_reason || 'Policy and fair trade violations'}. Contact compliance@farmdirect.gov.in.`
+      });
+    }
+
     if (!user) {
       const userId = `USER-${Date.now().toString().slice(-6)}`;
       const assignedRole = role || 'FARMER';
@@ -501,6 +509,13 @@ app.post('/api/products', async (req, res) => {
     const [userRows] = await pool.query('SELECT id FROM users WHERE id = ?', [fId]);
     if (userRows.length === 0) {
       fId = 'USER-001';
+    } else {
+      const [fUser] = await pool.query('SELECT account_status, suspension_reason FROM users WHERE id = ?', [fId]);
+      if (fUser.length > 0 && fUser[0].account_status && fUser[0].account_status !== 'ACTIVE') {
+        return res.status(403).json({
+          error: `Produce Listing Prohibited: Your farmer account is ${fUser[0].account_status.toLowerCase()} (${fUser[0].suspension_reason || 'Compliance restriction'}).`
+        });
+      }
     }
 
     await pool.query(
@@ -802,6 +817,7 @@ app.get('/api/admin/kyc-queue', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT u.id, u.phone, u.name, u.role, u.location, u.verification_status AS verificationStatus,
+              u.account_status AS accountStatus, u.suspension_reason AS suspensionReason,
               u.gstin, u.business_legal_name AS businessLegalName, u.fssai_license AS fssaiLicense,
               u.created_at, fp.cluster_name, fp.pm_kisan_id AS pmKisanId,
               fp.khasra_khatauni_no AS khasraNo, fp.land_size_acres AS landSizeAcres
@@ -832,6 +848,138 @@ app.patch('/api/admin/kyc/:userId', async (req, res) => {
   } catch (err) {
     console.error('update kyc status error:', err);
     res.status(500).json({ error: 'Failed to update user KYC status' });
+  }
+});
+
+app.patch('/api/admin/users/:userId/account-status', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { accountStatus, reason } = req.body;
+    if (!['ACTIVE', 'SUSPENDED', 'BANNED'].includes(accountStatus)) {
+      return res.status(400).json({ error: 'Invalid account status' });
+    }
+
+    await pool.query(
+      'UPDATE users SET account_status = ?, suspension_reason = ? WHERE id = ?',
+      [accountStatus, reason || null, userId]
+    );
+
+    // If farmer suspended or banned, pause their active listings
+    if (accountStatus !== 'ACTIVE') {
+      await pool.query('UPDATE products SET status = "PAUSED" WHERE farmer_id = ?', [userId]);
+    }
+
+    res.json({ success: true, userId, accountStatus, reason });
+  } catch (err) {
+    console.error('update account status error:', err);
+    res.status(500).json({ error: 'Failed to update user account status' });
+  }
+});
+
+// Grievance & Support Tickets API
+app.get('/api/tickets', async (req, res) => {
+  try {
+    const { userId, status, role } = req.query;
+    let query = `SELECT 
+      id, 
+      ticket_number AS ticketNumber, 
+      user_id AS userId, 
+      user_name AS userName, 
+      user_role AS userRole, 
+      order_id AS orderId, 
+      subject, 
+      category, 
+      description, 
+      priority, 
+      status, 
+      admin_notes AS adminNotes, 
+      resolution_summary AS resolutionSummary, 
+      created_at AS createdAt, 
+      updated_at AS updatedAt 
+    FROM support_tickets WHERE 1=1`;
+    const params = [];
+    if (userId) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    }
+    if (status && status !== 'ALL') {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    if (role && role !== 'ALL') {
+      query += ' AND user_role = ?';
+      params.push(role);
+    }
+    query += ' ORDER BY created_at DESC';
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('get tickets error:', err);
+    res.status(500).json({ error: 'Failed to fetch support tickets' });
+  }
+});
+
+app.post('/api/tickets', async (req, res) => {
+  try {
+    const { userId, userName, userRole, orderId, subject, category, description, priority } = req.body;
+    if (!userId || !subject || !description) {
+      return res.status(400).json({ error: 'Subject, description, and user ID are required' });
+    }
+    const id = `TKT-${Date.now()}`;
+    const ticketNumber = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    await pool.query(
+      `INSERT INTO support_tickets 
+       (id, ticket_number, user_id, user_name, user_role, order_id, subject, category, description, priority, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
+      [
+        id,
+        ticketNumber,
+        userId,
+        userName || 'Registered User',
+        userRole || 'BUYER',
+        orderId || null,
+        subject,
+        category || 'OTHER',
+        description,
+        priority || 'MEDIUM'
+      ]
+    );
+    res.status(201).json({
+      id,
+      ticketNumber,
+      userId,
+      userName: userName || 'Registered User',
+      userRole: userRole || 'BUYER',
+      orderId,
+      subject,
+      category: category || 'OTHER',
+      description,
+      priority: priority || 'MEDIUM',
+      status: 'OPEN',
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('create ticket error:', err);
+    res.status(500).json({ error: 'Failed to create grievance ticket' });
+  }
+});
+
+app.patch('/api/tickets/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNotes, resolutionSummary } = req.body;
+    await pool.query(
+      `UPDATE support_tickets SET 
+         status = COALESCE(?, status), 
+         admin_notes = COALESCE(?, admin_notes), 
+         resolution_summary = COALESCE(?, resolution_summary) 
+       WHERE id = ? OR ticket_number = ?`,
+      [status || null, adminNotes || null, resolutionSummary || null, id, id]
+    );
+    res.json({ success: true, id, status, adminNotes, resolutionSummary });
+  } catch (err) {
+    console.error('resolve ticket error:', err);
+    res.status(500).json({ error: 'Failed to resolve grievance ticket' });
   }
 });
 
