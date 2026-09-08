@@ -30,6 +30,132 @@ app.post('/api/webhook/deploy', (req, res) => {
   });
 });
 
+// Dynamic Market Policy & Purchase Rationing Rules (Managed by Admin)
+let dynamicMarketRules = {
+  id: 'RULE-001',
+  retailMaxQtyKg: 2.0,
+  wholesaleMinQtyKg: 25.0,
+  retailDeliveryFee: 25.0,
+  wholesaleBaseFreight: 150.0,
+  wholesalePerKgFreight: 2.2,
+  isRationingActive: true,
+  rationingReason: 'Essential Commodities Price Stabilization Directive #FD-2026',
+  updatedAt: new Date().toISOString(),
+};
+
+async function initMarketRulesTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS market_rules (
+        id VARCHAR(36) PRIMARY KEY,
+        retail_max_qty_kg DECIMAL(10,2) DEFAULT 2.00,
+        wholesale_min_qty_kg DECIMAL(10,2) DEFAULT 25.00,
+        retail_delivery_fee DECIMAL(10,2) DEFAULT 25.00,
+        wholesale_base_freight DECIMAL(10,2) DEFAULT 150.00,
+        wholesale_per_kg_freight DECIMAL(10,2) DEFAULT 2.20,
+        is_rationing_active BOOLEAN DEFAULT TRUE,
+        rationing_reason VARCHAR(255) DEFAULT 'Essential Commodities Price Stabilization Directive #FD-2026',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
+    if (rows && rows.length === 0) {
+      await pool.query(`
+        INSERT INTO market_rules (id, retail_max_qty_kg, wholesale_min_qty_kg, retail_delivery_fee, wholesale_base_freight, wholesale_per_kg_freight, is_rationing_active, rationing_reason)
+        VALUES ("RULE-001", 2.00, 25.00, 25.00, 150.00, 2.20, TRUE, "Essential Commodities Price Stabilization Directive #FD-2026")
+      `);
+    } else if (rows && rows.length > 0) {
+      const r = rows[0];
+      dynamicMarketRules = {
+        id: r.id,
+        retailMaxQtyKg: Number(r.retail_max_qty_kg),
+        wholesaleMinQtyKg: Number(r.wholesale_min_qty_kg),
+        retailDeliveryFee: Number(r.retail_delivery_fee),
+        wholesaleBaseFreight: Number(r.wholesale_base_freight),
+        wholesalePerKgFreight: Number(r.wholesale_per_kg_freight),
+        isRationingActive: Boolean(r.is_rationing_active),
+        rationingReason: r.rationing_reason || 'Essential Commodities Price Stabilization Directive #FD-2026',
+        updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
+      };
+    }
+  } catch (e) {
+    console.warn('initMarketRulesTable note (using in-memory fallback):', e.message);
+  }
+}
+initMarketRulesTable();
+
+app.get('/api/admin/market-rules', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
+    if (rows && rows.length > 0) {
+      const r = rows[0];
+      return res.json({
+        retailMaxQtyKg: Number(r.retail_max_qty_kg),
+        wholesaleMinQtyKg: Number(r.wholesale_min_qty_kg),
+        retailDeliveryFee: Number(r.retail_delivery_fee),
+        wholesaleBaseFreight: Number(r.wholesale_base_freight),
+        wholesalePerKgFreight: Number(r.wholesale_per_kg_freight),
+        isRationingActive: Boolean(r.is_rationing_active),
+        rationingReason: r.rationing_reason,
+        updatedAt: r.updated_at,
+      });
+    }
+  } catch (e) {}
+  res.json(dynamicMarketRules);
+});
+
+app.put('/api/admin/market-rules', async (req, res) => {
+  try {
+    const {
+      retailMaxQtyKg,
+      wholesaleMinQtyKg,
+      retailDeliveryFee,
+      wholesaleBaseFreight,
+      wholesalePerKgFreight,
+      isRationingActive,
+      rationingReason,
+    } = req.body;
+
+    if (retailMaxQtyKg !== undefined) dynamicMarketRules.retailMaxQtyKg = Number(retailMaxQtyKg);
+    if (wholesaleMinQtyKg !== undefined) dynamicMarketRules.wholesaleMinQtyKg = Number(wholesaleMinQtyKg);
+    if (retailDeliveryFee !== undefined) dynamicMarketRules.retailDeliveryFee = Number(retailDeliveryFee);
+    if (wholesaleBaseFreight !== undefined) dynamicMarketRules.wholesaleBaseFreight = Number(wholesaleBaseFreight);
+    if (wholesalePerKgFreight !== undefined) dynamicMarketRules.wholesalePerKgFreight = Number(wholesalePerKgFreight);
+    if (isRationingActive !== undefined) dynamicMarketRules.isRationingActive = Boolean(isRationingActive);
+    if (rationingReason !== undefined) dynamicMarketRules.rationingReason = String(rationingReason);
+    dynamicMarketRules.updatedAt = new Date().toISOString();
+
+    try {
+      await pool.query(
+        `UPDATE market_rules SET
+          retail_max_qty_kg = ?,
+          wholesale_min_qty_kg = ?,
+          retail_delivery_fee = ?,
+          wholesale_base_freight = ?,
+          wholesale_per_kg_freight = ?,
+          is_rationing_active = ?,
+          rationing_reason = ?
+        WHERE id = "RULE-001"`,
+        [
+          dynamicMarketRules.retailMaxQtyKg,
+          dynamicMarketRules.wholesaleMinQtyKg,
+          dynamicMarketRules.retailDeliveryFee,
+          dynamicMarketRules.wholesaleBaseFreight,
+          dynamicMarketRules.wholesalePerKgFreight,
+          dynamicMarketRules.isRationingActive,
+          dynamicMarketRules.rationingReason,
+        ]
+      );
+    } catch (e) {}
+
+    res.json({ success: true, rules: dynamicMarketRules });
+  } catch (err) {
+    console.error('update market rules error:', err);
+    res.status(500).json({ error: 'Failed to update market rules' });
+  }
+});
+
 app.post('/api/auth/verify-gst', async (req, res) => {
   try {
     const rawGstin = (req.body.gstin || '').trim().toUpperCase();
@@ -481,19 +607,19 @@ app.post('/api/orders', async (req, res) => {
     const { productId, quantity, deliveryLocation, buyerName, buyerTier } = req.body;
     const reqQty = Number(quantity);
 
-    // Dual-tier buyer purchase limits (SIH 2026 Household Rationing vs Wholesale B2B)
-    const tier = buyerTier || (reqQty <= 2 ? 'RETAIL' : 'WHOLESALE');
-    if (tier === 'RETAIL' && reqQty > 2) {
+    // Dual-tier buyer purchase limits governed dynamically by Admin marketRules
+    const tier = buyerTier || (reqQty <= dynamicMarketRules.retailMaxQtyKg ? 'RETAIL' : 'WHOLESALE');
+    if (tier === 'RETAIL' && dynamicMarketRules.isRationingActive && reqQty > dynamicMarketRules.retailMaxQtyKg) {
       await connection.rollback();
       return res.status(400).json({ 
-        error: 'Retail Household Cap Exceeded: Purchases in the Normal Buyer section are strictly capped at 2 kg per crop to prevent hoarding and ensure fair household rationing.' 
+        error: `Retail Household Cap Exceeded: Purchases in the Normal Buyer section are currently capped at ${dynamicMarketRules.retailMaxQtyKg} kg per crop by Market Authority (${dynamicMarketRules.rationingReason}).` 
       });
     }
 
-    if (tier === 'WHOLESALE' && reqQty < 25) {
+    if (tier === 'WHOLESALE' && reqQty < dynamicMarketRules.wholesaleMinQtyKg) {
       await connection.rollback();
       return res.status(400).json({ 
-        error: 'Wholesale Minimum Not Met: Commercial wholesale orders require a minimum batch of 25 kg for refrigerated freight. For small household quantities (up to 2 kg), please order via the Normal Buyer section.' 
+        error: `Wholesale Minimum Not Met: Commercial wholesale orders require a minimum batch of ${dynamicMarketRules.wholesaleMinQtyKg} kg for refrigerated freight. For small household quantities, please order via the Normal Buyer section.` 
       });
     }
 
@@ -522,8 +648,10 @@ app.post('/api/orders', async (req, res) => {
     const orderId = `ORD-${Date.now().toString().slice(-4)}`;
     const pricePerKg = Number(prod.price_per_kg);
     const totalPrice = Math.round(reqQty * pricePerKg * 100) / 100;
-    // Local household dispatch ₹25 vs refrigerated B2B reefer freight
-    const logisticsFee = tier === 'RETAIL' ? 25 : Math.max(150, Math.round(reqQty * 2.2));
+    // Dynamic logistics calculation from Admin marketRules
+    const logisticsFee = tier === 'RETAIL' 
+      ? dynamicMarketRules.retailDeliveryFee 
+      : Math.max(dynamicMarketRules.wholesaleBaseFreight, Math.round(reqQty * dynamicMarketRules.wholesalePerKgFreight));
     const finalAmount = totalPrice + logisticsFee;
     const orderDate = new Date().toISOString().split('T')[0];
 

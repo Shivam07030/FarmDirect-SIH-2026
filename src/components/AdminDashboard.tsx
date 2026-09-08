@@ -20,7 +20,11 @@ import {
   Edit2,
   UserPlus,
   X,
-  FileText
+  FileText,
+  SlidersHorizontal,
+  Scale,
+  Save,
+  RefreshCw
 } from 'lucide-react';
 import { LogisticsMap } from './LogisticsMap';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -34,13 +38,90 @@ import {
 } from '../services/api';
 
 export const AdminDashboard: React.FC = () => {
-  const { adminStats, orders, updateOrderStatus, activeTab, setActiveTab } = useApp();
+  const { 
+    adminStats, 
+    orders, 
+    updateOrderStatus, 
+    activeTab, 
+    setActiveTab,
+    marketRules,
+    updateMarketRules
+  } = useApp();
 
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [liveStats, setLiveStats] = useState<any>(null);
   const [kycQueue, setKycQueue] = useState<any[]>([]);
   const [kycFilter, setKycFilter] = useState<'ALL' | 'FARMER' | 'BUYER' | 'PENDING'>('ALL');
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
+  // Policy Form State
+  const [policyForm, setPolicyForm] = useState({
+    retailMaxQtyKg: 2,
+    wholesaleMinQtyKg: 25,
+    retailDeliveryFee: 25,
+    wholesaleBaseFreight: 150,
+    wholesalePerKgFreight: 2.2,
+    isRationingActive: true,
+    rationingReason: 'Essential Commodities Price Stabilization Directive'
+  });
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policySuccess, setPolicySuccess] = useState(false);
+
+  useEffect(() => {
+    if (marketRules) {
+      setPolicyForm({
+        retailMaxQtyKg: marketRules.retailMaxQtyKg ?? 2,
+        wholesaleMinQtyKg: marketRules.wholesaleMinQtyKg ?? 25,
+        retailDeliveryFee: marketRules.retailDeliveryFee ?? 25,
+        wholesaleBaseFreight: marketRules.wholesaleBaseFreight ?? 150,
+        wholesalePerKgFreight: marketRules.wholesalePerKgFreight ?? 2.2,
+        isRationingActive: marketRules.isRationingActive ?? true,
+        rationingReason: marketRules.rationingReason || ''
+      });
+    }
+  }, [marketRules]);
+
+  const handleSavePolicy = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPolicySaving(true);
+    setPolicySuccess(false);
+    try {
+      const ok = await updateMarketRules(policyForm);
+      if (ok) {
+        setPolicySuccess(true);
+        setTimeout(() => setPolicySuccess(false), 3500);
+      }
+    } catch (err) {
+      console.error('Failed to update market policy:', err);
+    } finally {
+      setPolicySaving(false);
+    }
+  };
+
+  const applyPreset = async (preset: {
+    retailMaxQtyKg: number;
+    wholesaleMinQtyKg: number;
+    retailDeliveryFee: number;
+    wholesaleBaseFreight: number;
+    wholesalePerKgFreight: number;
+    isRationingActive: boolean;
+    rationingReason: string;
+  }) => {
+    setPolicyForm(preset);
+    setPolicySaving(true);
+    setPolicySuccess(false);
+    try {
+      const ok = await updateMarketRules(preset);
+      if (ok) {
+        setPolicySuccess(true);
+        setTimeout(() => setPolicySuccess(false), 3500);
+      }
+    } catch (err) {
+      console.error('Failed to apply preset:', err);
+    } finally {
+      setPolicySaving(false);
+    }
+  };
 
   // Edit KYC Modal State
   const [editingKycUser, setEditingKycUser] = useState<any | null>(null);
@@ -379,6 +460,36 @@ export const AdminDashboard: React.FC = () => {
               className="px-4 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 text-center"
             >
               Open Compliance Desk
+            </button>
+          </section>
+
+          {/* Dynamic Market Rationing & Anti-Hoarding Cap Banner */}
+          <section className="p-4 sm:p-5 bg-amber-50/80 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-900 text-white flex items-center justify-center shrink-0">
+                <SlidersHorizontal className="w-5 h-5 text-amber-300" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                  <span>Dynamic Market Rationing & Anti-Hoarding Cap</span>
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                    marketRules?.isRationingActive ? 'bg-amber-200 text-amber-900' : 'bg-stone-200 text-stone-700'
+                  }`}>
+                    {marketRules?.isRationingActive ? 'Directive Active' : 'Normal Market'}
+                  </span>
+                </div>
+                <div className="text-xs text-amber-900">
+                  Retail Cap: <strong className="font-semibold">{marketRules?.retailMaxQtyKg || 2} kg</strong> per order · Wholesale MOQ: <strong className="font-semibold">{marketRules?.wholesaleMinQtyKg || 25} kg</strong> · Logistics: Flat ₹{marketRules?.retailDeliveryFee || 25} (retail) / ₹{marketRules?.wholesaleBaseFreight || 150} base (wholesale).
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('policy')}
+              className="px-4 py-2.5 bg-amber-900 hover:bg-amber-950 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 text-center"
+            >
+              Configure Policy & Caps
             </button>
           </section>
 
@@ -775,6 +886,502 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. POLICY & RATIONING TAB */}
+      {activeTab === 'policy' && (
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="border-b border-stone-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 mb-1.5">
+                <Scale className="w-3.5 h-3.5 text-amber-700" />
+                Anti-Hoarding & Fair Price Stabilization
+              </div>
+              <h1 className="text-2xl font-semibold text-stone-900 font-serif">Market Policy & Rationing Controls</h1>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Dynamically govern retail household purchase limits, commercial wholesale batch MOQs, and freight matrix across all buyer channels.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (marketRules) {
+                    setPolicyForm({
+                      retailMaxQtyKg: marketRules.retailMaxQtyKg ?? 2,
+                      wholesaleMinQtyKg: marketRules.wholesaleMinQtyKg ?? 25,
+                      retailDeliveryFee: marketRules.retailDeliveryFee ?? 25,
+                      wholesaleBaseFreight: marketRules.wholesaleBaseFreight ?? 150,
+                      wholesalePerKgFreight: marketRules.wholesalePerKgFreight ?? 2.2,
+                      isRationingActive: marketRules.isRationingActive ?? true,
+                      rationingReason: marketRules.rationingReason || ''
+                    });
+                  }
+                }}
+                className="px-3 py-2 border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Reset to current server values"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-stone-500" />
+                Reset
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSavePolicy}
+                disabled={policySaving}
+                className="px-4 py-2 bg-[#0E3B2B] hover:bg-[#144E39] disabled:opacity-50 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+              >
+                {policySaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    Enforcing...
+                  </>
+                ) : policySuccess ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                    Enforced Live!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-emerald-300" />
+                    Save & Enforce Policy
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick 1-Click Policy Presets */}
+          <div className="bg-stone-50/80 border border-stone-200/80 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                1-Click Market Scenarios (Demonstration Presets)
+              </div>
+              <span className="text-[11px] text-stone-500 hidden sm:inline">
+                Click any preset to instantly update and sync across the entire system
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Preset 1: Emergency 1kg */}
+              <button
+                type="button"
+                onClick={() => applyPreset({
+                  retailMaxQtyKg: 1,
+                  wholesaleMinQtyKg: 20,
+                  retailDeliveryFee: 15,
+                  wholesaleBaseFreight: 120,
+                  wholesalePerKgFreight: 2.0,
+                  isRationingActive: true,
+                  rationingReason: 'Emergency Essential Commodities Act (EC Act) - Price Stabilization Directive'
+                })}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  policyForm.retailMaxQtyKg === 1 && policyForm.isRationingActive
+                    ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
+                    : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-amber-950">Emergency Mode</span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
+                    1.0 kg Cap
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 line-clamp-2">
+                  High supply shock / price spike. Strict 1kg consumer quota with 20kg wholesale MOQ.
+                </p>
+              </button>
+
+              {/* Preset 2: Standard 2kg */}
+              <button
+                type="button"
+                onClick={() => applyPreset({
+                  retailMaxQtyKg: 2,
+                  wholesaleMinQtyKg: 25,
+                  retailDeliveryFee: 25,
+                  wholesaleBaseFreight: 150,
+                  wholesalePerKgFreight: 2.2,
+                  isRationingActive: true,
+                  rationingReason: 'Fair Distribution Directive - 2kg Household Rationing & Anti-Hoarding Cap'
+                })}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  policyForm.retailMaxQtyKg === 2 && policyForm.isRationingActive
+                    ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-600/20'
+                    : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-stone-900">Standard Rationing</span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">
+                    2.0 kg Cap
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 line-clamp-2">
+                  Default fair allocation policy. Prevents residential cornering while serving full households.
+                </p>
+              </button>
+
+              {/* Preset 3: Liberal 5kg */}
+              <button
+                type="button"
+                onClick={() => applyPreset({
+                  retailMaxQtyKg: 5,
+                  wholesaleMinQtyKg: 50,
+                  retailDeliveryFee: 35,
+                  wholesaleBaseFreight: 180,
+                  wholesalePerKgFreight: 2.5,
+                  isRationingActive: false,
+                  rationingReason: 'Peak Harvest Season - Relaxed Consumer Limits & Enhanced Bulk Supply'
+                })}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  policyForm.retailMaxQtyKg === 5 && !policyForm.isRationingActive
+                    ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
+                    : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-stone-900">Bumper Harvest</span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-900">
+                    5.0 kg Cap
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 line-clamp-2">
+                  Abundant farmgate arrivals. Higher 5kg household cap with 50kg wholesale minimum lot.
+                </p>
+              </button>
+
+              {/* Preset 4: Unrestricted 10kg */}
+              <button
+                type="button"
+                onClick={() => applyPreset({
+                  retailMaxQtyKg: 10,
+                  wholesaleMinQtyKg: 100,
+                  retailDeliveryFee: 45,
+                  wholesaleBaseFreight: 250,
+                  wholesalePerKgFreight: 3.0,
+                  isRationingActive: false,
+                  rationingReason: 'Open Unrestricted Trading - Free Market Corridor'
+                })}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  policyForm.retailMaxQtyKg === 10
+                    ? 'border-stone-800 bg-stone-100 ring-2 ring-stone-800/20'
+                    : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-stone-900">Free Market Trading</span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-stone-200 text-stone-900">
+                    10.0 kg Cap
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 line-clamp-2">
+                  Unrestricted open trading corridor. For high-volume suburban consumer clusters.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Configuration Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Direct Consumer / Retail Column */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-5 shadow-xs">
+              <div className="border-b border-stone-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-emerald-700" />
+                    Direct Consumer (Retail) Guardrails
+                  </h3>
+                  <p className="text-[11px] text-stone-500">Consumer marketplace controls to mitigate hoarding</p>
+                </div>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-100">
+                  Tier: RETAIL
+                </span>
+              </div>
+
+              {/* Retail Max Cap */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-700">
+                    Maximum Purchase Limit (Per Order)
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#0E3B2B] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                    {policyForm.retailMaxQtyKg} kg
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="25"
+                    value={policyForm.retailMaxQtyKg}
+                    onChange={(e) => setPolicyForm({ ...policyForm, retailMaxQtyKg: Math.max(0.5, parseFloat(e.target.value) || 0.5) })}
+                    className="flex-1 px-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#0E3B2B]/20"
+                  />
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 5].map((kg) => (
+                      <button
+                        key={kg}
+                        type="button"
+                        onClick={() => setPolicyForm({ ...policyForm, retailMaxQtyKg: kg })}
+                        className={`px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                          policyForm.retailMaxQtyKg === kg
+                            ? 'bg-[#0E3B2B] text-white border-[#0E3B2B]'
+                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {kg}kg
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-stone-400">
+                  Prevents single retail accounts or bulk scrapers from purchasing beyond household rations.
+                </p>
+              </div>
+
+              {/* Retail Delivery Fee */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-700">
+                    Flat Household Delivery Fee
+                  </label>
+                  <span className="text-xs font-mono font-bold text-stone-800">
+                    ₹{policyForm.retailDeliveryFee}
+                  </span>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 text-xs font-bold">
+                    ₹
+                  </div>
+                  <input
+                    type="number"
+                    step="5"
+                    min="0"
+                    max="200"
+                    value={policyForm.retailDeliveryFee}
+                    onChange={(e) => setPolicyForm({ ...policyForm, retailDeliveryFee: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                    className="w-full pl-7 pr-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#0E3B2B]/20"
+                  />
+                </div>
+                <p className="text-[11px] text-stone-400">
+                  Fixed charge for direct farm-to-doorstep local EV delivery.
+                </p>
+              </div>
+
+              {/* Consumer Simulation Box */}
+              <div className="p-3 bg-stone-50 rounded-xl border border-stone-100 space-y-1.5 text-xs">
+                <div className="font-semibold text-stone-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  Buyer Interface Active Impact:
+                </div>
+                <div className="text-stone-500 leading-relaxed text-[11px]">
+                  Marketplace presets generated: <code className="bg-white px-1 py-0.5 rounded border text-stone-800 font-mono">0.5 kg, 1 kg, {policyForm.retailMaxQtyKg > 1 ? `${(policyForm.retailMaxQtyKg * 0.75).toFixed(1)} kg, ` : ''}{policyForm.retailMaxQtyKg} kg</code>. Attempting to order beyond {policyForm.retailMaxQtyKg} kg will trigger an instant cap block.
+                </div>
+              </div>
+            </div>
+
+            {/* Commercial Wholesale Column */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-5 shadow-xs">
+              <div className="border-b border-stone-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-blue-700" />
+                    Commercial Wholesale Logistics & MOQ
+                  </h3>
+                  <p className="text-[11px] text-stone-500">Bulk logistics corridor and minimum lot rules</p>
+                </div>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-100">
+                  Tier: WHOLESALE
+                </span>
+              </div>
+
+              {/* Wholesale Minimum Order Quantity */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-700">
+                    Minimum Batch MOQ (Per Commercial Order)
+                  </label>
+                  <span className="text-xs font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                    {policyForm.wholesaleMinQtyKg} kg
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    step="5"
+                    min="5"
+                    max="500"
+                    value={policyForm.wholesaleMinQtyKg}
+                    onChange={(e) => setPolicyForm({ ...policyForm, wholesaleMinQtyKg: Math.max(5, parseInt(e.target.value, 10) || 5) })}
+                    className="flex-1 px-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-600/20"
+                  />
+                  <div className="flex items-center gap-1">
+                    {[20, 25, 50, 100].map((kg) => (
+                      <button
+                        key={kg}
+                        type="button"
+                        onClick={() => setPolicyForm({ ...policyForm, wholesaleMinQtyKg: kg })}
+                        className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                          policyForm.wholesaleMinQtyKg === kg
+                            ? 'bg-blue-800 text-white border-blue-800'
+                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {kg}kg
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-stone-400">
+                  Institutional buyers must purchase at least this amount to unlock wholesale farmgate pricing.
+                </p>
+              </div>
+
+              {/* Wholesale Freight Matrix */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-stone-700">
+                    Base Cold-Chain Freight
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 text-xs font-bold">
+                      ₹
+                    </div>
+                    <input
+                      type="number"
+                      step="10"
+                      min="0"
+                      max="1000"
+                      value={policyForm.wholesaleBaseFreight}
+                      onChange={(e) => setPolicyForm({ ...policyForm, wholesaleBaseFreight: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                      className="w-full pl-7 pr-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-600/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-stone-700">
+                    Per-Kg Freight Rate
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 text-xs font-bold">
+                      ₹
+                    </div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="20"
+                      value={policyForm.wholesalePerKgFreight}
+                      onChange={(e) => setPolicyForm({ ...policyForm, wholesalePerKgFreight: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="w-full pl-7 pr-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-600/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Wholesale Simulation Box */}
+              <div className="p-3 bg-stone-50 rounded-xl border border-stone-100 space-y-1.5 text-xs">
+                <div className="font-semibold text-stone-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                  Wholesale Freight Calculation for 100 kg batch:
+                </div>
+                <div className="text-stone-600 font-mono text-xs">
+                  ₹{policyForm.wholesaleBaseFreight} (base) + (100 kg × ₹{policyForm.wholesalePerKgFreight}) = <strong className="text-stone-900 font-bold">₹{policyForm.wholesaleBaseFreight + (100 * policyForm.wholesalePerKgFreight)} freight</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Legal & Regulatory Directive Settings */}
+          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4 shadow-xs">
+            <div className="border-b border-stone-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-700" />
+                  Statutory Anti-Hoarding & Essential Commodities Directive
+                </h3>
+                <p className="text-[11px] text-stone-500">Legal disclosure displayed to all purchasers during checkout</p>
+              </div>
+
+              {/* Toggle Switch */}
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <span className="text-xs font-semibold text-stone-700">
+                  {policyForm.isRationingActive ? 'Directive Enforced' : 'Rationing Paused'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={policyForm.isRationingActive}
+                  onChange={(e) => setPolicyForm({ ...policyForm, isRationingActive: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-stone-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600 relative"></div>
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-stone-700">
+                Gazette Directive Justification / Notice Text
+              </label>
+              <textarea
+                rows={2}
+                value={policyForm.rationingReason}
+                onChange={(e) => setPolicyForm({ ...policyForm, rationingReason: e.target.value })}
+                placeholder="e.g. Essential Commodities Act (EC Act) - Tomato Price Stabilization Order"
+                className="w-full px-3 py-2 border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-hidden focus:ring-2 focus:ring-[#0E3B2B]/20 resize-none"
+              />
+              <p className="text-[11px] text-stone-400">
+                This notice is prominently displayed on the consumer marketplace header and purchase confirmation modal.
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Save Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#0E3B2B] text-white flex items-center justify-center shrink-0">
+                <Scale className="w-4 h-4 text-emerald-300" />
+              </div>
+              <div className="text-xs text-stone-600">
+                <span className="font-bold text-stone-900">Live Policy Deployment:</span> Changes apply immediately without server restart. Any buyer exceeding <strong className="text-stone-900">{policyForm.retailMaxQtyKg} kg</strong> will be blocked by both the React UI and Node API.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              {policySuccess && (
+                <span className="text-xs text-emerald-800 font-semibold flex items-center gap-1 animate-pulse">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Saved and broadcasting live!
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSavePolicy}
+                disabled={policySaving}
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+              >
+                {policySaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    Enforcing Changes...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-emerald-300" />
+                    Enforce Policy Now
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

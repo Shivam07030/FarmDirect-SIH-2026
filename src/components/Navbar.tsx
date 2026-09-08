@@ -13,7 +13,8 @@ import {
   Store, 
   Globe,
   Download,
-  ShieldCheck
+  ShieldCheck,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -60,6 +61,7 @@ export const Navbar: React.FC = () => {
     } else {
       return [
         { id: 'overview', label: 'Overview', icon: Home },
+        { id: 'policy', label: 'Rationing Policy', icon: SlidersHorizontal },
         { id: 'kyc', label: 'Compliance & KYC', icon: ShieldCheck },
         { id: 'orders', label: 'Orders', icon: ShoppingBag },
         { id: 'logistics', label: 'Logistics', icon: Truck },

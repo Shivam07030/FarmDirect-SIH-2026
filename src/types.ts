@@ -159,3 +159,14 @@ export interface UserProfile {
   buyerKyc?: BuyerKycData;
   buyerTier?: BuyerTier;
 }
+
+export interface MarketRules {
+  retailMaxQtyKg: number;
+  wholesaleMinQtyKg: number;
+  retailDeliveryFee: number;
+  wholesaleBaseFreight: number;
+  wholesalePerKgFreight: number;
+  isRationingActive: boolean;
+  rationingReason: string;
+  updatedAt?: string;
+}

@@ -26,6 +26,7 @@ export const BuyerMarketplace: React.FC = () => {
     currentUser, 
     orders, 
     updateOrderStatus,
+    marketRules,
     activeTab, 
     setActiveTab,
     buyerTier,
@@ -39,7 +40,7 @@ export const BuyerMarketplace: React.FC = () => {
 
   // Purchase modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(buyerTier === 'RETAIL' ? 2 : 50);
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(buyerTier === 'RETAIL' ? Math.min(2, marketRules.retailMaxQtyKg) : marketRules.wholesaleMinQtyKg);
   const [deliveryAddress, setDeliveryAddress] = useState('Delhi (Azadpur Terminal Hub)');
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
 
@@ -61,11 +62,12 @@ export const BuyerMarketplace: React.FC = () => {
   const handleOpenBuy = (product: Product) => {
     setSelectedProduct(product);
     if (buyerTier === 'RETAIL') {
-      // Normal Buyer limit: Default to 1 kg, max 2 kg
-      setPurchaseQuantity(Math.min(2, Math.max(0.5, product.quantity > 0 ? 1 : 0.5)));
+      // Normal Buyer limit: Default to 1 kg or half of max cap
+      const defaultQty = Math.min(marketRules.retailMaxQtyKg, 1.0);
+      setPurchaseQuantity(Math.min(marketRules.retailMaxQtyKg, Math.max(0.5, product.quantity > 0 ? defaultQty : 0.5)));
     } else {
-      // Wholesaler: Default to 50 kg (min 25 kg)
-      setPurchaseQuantity(Math.min(product.quantity, 50));
+      // Wholesaler: Default to wholesaleMinQtyKg or available stock
+      setPurchaseQuantity(Math.min(product.quantity, Math.max(marketRules.wholesaleMinQtyKg, marketRules.wholesaleMinQtyKg * 2)));
     }
     setOrderSuccess(null);
   };
@@ -74,13 +76,13 @@ export const BuyerMarketplace: React.FC = () => {
     e.preventDefault();
     if (!selectedProduct) return;
 
-    // Normal buyer guardrail: Cannot exceed 2 kg
-    if (buyerTier === 'RETAIL' && purchaseQuantity > 2) {
+    // Dynamic Normal buyer guardrail: Cannot exceed retailMaxQtyKg
+    if (buyerTier === 'RETAIL' && marketRules.isRationingActive && purchaseQuantity > marketRules.retailMaxQtyKg) {
       return;
     }
 
-    // Wholesaler guardrail: Minimum 25 kg
-    if (buyerTier === 'WHOLESALE' && purchaseQuantity < 25) {
+    // Dynamic Wholesaler guardrail: Minimum wholesaleMinQtyKg
+    if (buyerTier === 'WHOLESALE' && purchaseQuantity < marketRules.wholesaleMinQtyKg) {
       return;
     }
 
@@ -207,7 +209,7 @@ export const BuyerMarketplace: React.FC = () => {
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-stone-900">Normal Buyer (Household)</span>
                     <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded">
-                      Max 2 kg Cap
+                      Max {marketRules.retailMaxQtyKg} kg Cap
                     </span>
                   </div>
                   <div className="text-xs text-stone-500 mt-0.5">
@@ -239,7 +241,7 @@ export const BuyerMarketplace: React.FC = () => {
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-stone-900">Wholesaler (B2B Commercial)</span>
                     <span className="text-[10px] uppercase font-bold bg-blue-100 text-blue-900 border border-blue-300 px-1.5 py-0.2 rounded">
-                      Bulk (50 kg+)
+                      Bulk ({marketRules.wholesaleMinQtyKg} kg+)
                     </span>
                   </div>
                   <div className="text-xs text-stone-500 mt-0.5">
@@ -266,18 +268,18 @@ export const BuyerMarketplace: React.FC = () => {
                       Normal Household Direct Purchasing Mode
                     </span>
                     <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Anti-Hoarding Active
+                      Anti-Hoarding {marketRules.isRationingActive ? 'Active' : 'Relaxed'}
                     </span>
                   </div>
                   <div className="text-xs text-emerald-800 mt-0.5">
-                    Purchase limit strictly capped at <strong>max 2 kg per crop</strong>. Fair farmgate rates with flat ₹25 doorstep delivery.
+                    Purchase limit strictly capped at <strong>max {marketRules.retailMaxQtyKg} kg per crop</strong>. Fair farmgate rates with flat ₹{marketRules.retailDeliveryFee} doorstep delivery.
                   </div>
                 </div>
               </div>
 
               <div className="text-xs text-emerald-800 font-semibold bg-white px-3 py-1.5 rounded-lg border border-emerald-300 self-start sm:self-auto flex items-center gap-1.5 font-mono">
                 <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                <span>Ration Cap: 2.0 kg Max / Order</span>
+                <span>Ration Cap: {marketRules.retailMaxQtyKg} kg Max / Order</span>
               </div>
             </div>
           ) : (
@@ -297,7 +299,7 @@ export const BuyerMarketplace: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-xs text-blue-800 mt-0.5">
-                    GSTIN: <span className="font-mono font-medium">{currentUser?.buyerKyc?.gstin || '07AAAAF1234A1Z5'}</span> · Minimum batch: 25 kg · 4°C Reefer Logistics
+                    GSTIN: <span className="font-mono font-medium">{currentUser?.buyerKyc?.gstin || '07AAAAF1234A1Z5'}</span> · Minimum batch: {marketRules.wholesaleMinQtyKg} kg · 4°C Reefer Logistics
                   </div>
                 </div>
               </div>
@@ -427,7 +429,7 @@ export const BuyerMarketplace: React.FC = () => {
                       {buyerTier === 'RETAIL' ? (
                         <>
                           <ShoppingBag className="w-3.5 h-3.5" />
-                          <span>Buy (Max 2 kg)</span>
+                          <span>Buy (Max {marketRules.retailMaxQtyKg} kg)</span>
                         </>
                       ) : (
                         <>
@@ -460,7 +462,7 @@ export const BuyerMarketplace: React.FC = () => {
                       ? 'bg-amber-100 text-amber-900 border-amber-300'
                       : 'bg-blue-100 text-blue-900 border-blue-300'
                   }`}>
-                    {buyerTier === 'RETAIL' ? 'Max 2 kg Cap' : 'Bulk Batch'}
+                    {buyerTier === 'RETAIL' ? `Max ${marketRules.retailMaxQtyKg} kg Cap` : `Bulk (Min ${marketRules.wholesaleMinQtyKg} kg)`}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5">
@@ -480,9 +482,9 @@ export const BuyerMarketplace: React.FC = () => {
               <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
                 <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold">Normal Household Ration Cap: 2 kg Maximum</span>
+                  <span className="font-semibold">Normal Household Ration Cap: {marketRules.retailMaxQtyKg} kg Maximum</span>
                   <p className="text-[11px] text-amber-800 mt-0.5">
-                    To ensure all families get access to farm produce at subsidized farmgate rates and eliminate hoarding, individual purchases are capped at 2 kg per crop.
+                    To ensure all families get access to farm produce at subsidized farmgate rates and eliminate hoarding, individual purchases are capped at {marketRules.retailMaxQtyKg} kg per crop ({marketRules.rationingReason}).
                   </p>
                 </div>
               </div>
@@ -490,7 +492,7 @@ export const BuyerMarketplace: React.FC = () => {
               <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2">
                 <Building2 className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold">B2B Commercial Wholesale Batch (Min 25 kg)</span>
+                  <span className="font-semibold">B2B Commercial Wholesale Batch (Min {marketRules.wholesaleMinQtyKg} kg)</span>
                   <p className="text-[11px] text-blue-800 mt-0.5">
                     Orders dispatch via temperature-monitored refrigerated trucks with automated GST E-way bills.
                   </p>
@@ -510,44 +512,58 @@ export const BuyerMarketplace: React.FC = () => {
                 <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
                   <label>Order Quantity (kg)</label>
                   <span className="font-mono text-stone-500 text-[11px]">
-                    {buyerTier === 'RETAIL' ? 'Limit: 0.5 kg to 2.0 kg' : `Available: ${selectedProduct.quantity} kg`}
+                    {buyerTier === 'RETAIL' ? `Limit: 0.5 kg to ${marketRules.retailMaxQtyKg} kg` : `Available: ${selectedProduct.quantity} kg`}
                   </span>
                 </div>
 
-                {/* Quick Presets */}
+                {/* Quick Presets dynamically computed from Admin marketRules */}
                 {buyerTier === 'RETAIL' ? (
                   <div className="grid grid-cols-4 gap-1.5">
-                    {[0.5, 1.0, 1.5, 2.0].map((qty) => (
-                      <button
-                        key={qty}
-                        type="button"
-                        onClick={() => setPurchaseQuantity(qty)}
-                        className={`py-1.5 rounded-lg font-mono text-xs font-semibold transition-all cursor-pointer border ${
-                          purchaseQuantity === qty
-                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                        }`}
-                      >
-                        {qty} kg
-                      </button>
-                    ))}
+                    {[
+                      Math.round(marketRules.retailMaxQtyKg * 0.25 * 10) / 10 || 0.5,
+                      Math.round(marketRules.retailMaxQtyKg * 0.5 * 10) / 10 || 1.0,
+                      Math.round(marketRules.retailMaxQtyKg * 0.75 * 10) / 10 || 1.5,
+                      marketRules.retailMaxQtyKg
+                    ]
+                      .filter((v, i, a) => a.indexOf(v) === i && v <= marketRules.retailMaxQtyKg)
+                      .map((qty) => (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => setPurchaseQuantity(qty)}
+                          className={`py-1.5 rounded-lg font-mono text-xs font-semibold transition-all cursor-pointer border ${
+                            purchaseQuantity === qty
+                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                              : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          {qty} kg
+                        </button>
+                      ))}
                   </div>
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5">
-                    {[50, 100, 250, 500].filter((q) => q <= selectedProduct.quantity).map((qty) => (
-                      <button
-                        key={qty}
-                        type="button"
-                        onClick={() => setPurchaseQuantity(qty)}
-                        className={`py-1.5 rounded-lg font-mono text-xs font-semibold transition-all cursor-pointer border ${
-                          purchaseQuantity === qty
-                            ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
-                            : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                        }`}
-                      >
-                        {qty} kg
-                      </button>
-                    ))}
+                    {[
+                      marketRules.wholesaleMinQtyKg,
+                      marketRules.wholesaleMinQtyKg * 2,
+                      marketRules.wholesaleMinQtyKg * 4,
+                      marketRules.wholesaleMinQtyKg * 10,
+                    ]
+                      .filter((q, i, a) => a.indexOf(q) === i && q <= selectedProduct.quantity)
+                      .map((qty) => (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => setPurchaseQuantity(qty)}
+                          className={`py-1.5 rounded-lg font-mono text-xs font-semibold transition-all cursor-pointer border ${
+                            purchaseQuantity === qty
+                              ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
+                              : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          {qty} kg
+                        </button>
+                      ))}
                   </div>
                 )}
 
@@ -559,7 +575,8 @@ export const BuyerMarketplace: React.FC = () => {
                       if (buyerTier === 'RETAIL') {
                         setPurchaseQuantity((q) => Math.max(0.5, Math.round((q - 0.5) * 10) / 10));
                       } else {
-                        setPurchaseQuantity((q) => Math.max(25, q - 25));
+                        const step = Math.max(10, Math.round(marketRules.wholesaleMinQtyKg / 2));
+                        setPurchaseQuantity((q) => Math.max(marketRules.wholesaleMinQtyKg, q - step));
                       }
                     }}
                     className="px-3.5 py-2.5 border border-r-0 border-stone-200 bg-stone-50 rounded-l-xl text-stone-700 font-bold text-sm cursor-pointer hover:bg-stone-100"
@@ -571,8 +588,8 @@ export const BuyerMarketplace: React.FC = () => {
                     value={purchaseQuantity}
                     onChange={(e) => setPurchaseQuantity(Number(e.target.value))}
                     required
-                    min={buyerTier === 'RETAIL' ? 0.5 : 25}
-                    max={buyerTier === 'RETAIL' ? 2 : selectedProduct.quantity}
+                    min={buyerTier === 'RETAIL' ? 0.5 : marketRules.wholesaleMinQtyKg}
+                    max={buyerTier === 'RETAIL' ? marketRules.retailMaxQtyKg : selectedProduct.quantity}
                     step={buyerTier === 'RETAIL' ? 0.5 : 1}
                     className="w-full text-center py-2.5 border-y border-stone-200 text-sm font-mono font-semibold focus:outline-none"
                   />
@@ -580,9 +597,10 @@ export const BuyerMarketplace: React.FC = () => {
                     type="button"
                     onClick={() => {
                       if (buyerTier === 'RETAIL') {
-                        setPurchaseQuantity((q) => Math.min(2, Math.round((q + 0.5) * 10) / 10));
+                        setPurchaseQuantity((q) => Math.min(marketRules.retailMaxQtyKg, Math.round((q + 0.5) * 10) / 10));
                       } else {
-                        setPurchaseQuantity((q) => Math.min(selectedProduct.quantity, q + 25));
+                        const step = Math.max(10, Math.round(marketRules.wholesaleMinQtyKg / 2));
+                        setPurchaseQuantity((q) => Math.min(selectedProduct.quantity, q + step));
                       }
                     }}
                     className="px-3.5 py-2.5 border border-l-0 border-stone-200 bg-stone-50 rounded-r-xl text-stone-700 font-bold text-sm cursor-pointer hover:bg-stone-100"
@@ -592,17 +610,17 @@ export const BuyerMarketplace: React.FC = () => {
                 </div>
 
                 {/* Quantity Guardrail Feedback */}
-                {buyerTier === 'RETAIL' && purchaseQuantity > 2 && (
+                {buyerTier === 'RETAIL' && marketRules.isRationingActive && purchaseQuantity > marketRules.retailMaxQtyKg && (
                   <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                    <span>Rationing Limit Exceeded! Normal household buyers can purchase at most 2 kg per crop. For bulk, use Wholesaler section.</span>
+                    <span>Rationing Limit Exceeded! Normal household buyers can purchase at most {marketRules.retailMaxQtyKg} kg per crop ({marketRules.rationingReason}). For bulk, use Wholesaler section.</span>
                   </div>
                 )}
 
-                {buyerTier === 'WHOLESALE' && purchaseQuantity < 25 && (
+                {buyerTier === 'WHOLESALE' && purchaseQuantity < marketRules.wholesaleMinQtyKg && (
                   <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                    <span>Wholesale minimum order is 25 kg. For smaller household quantities, please switch to Normal Buyer.</span>
+                    <span>Wholesale minimum order is {marketRules.wholesaleMinQtyKg} kg. For smaller household quantities, please switch to Normal Buyer.</span>
                   </div>
                 )}
               </div>
@@ -628,9 +646,9 @@ export const BuyerMarketplace: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-stone-600">
-                  <span>{buyerTier === 'RETAIL' ? 'Local household eco-delivery' : 'Shared 4°C reefer truck freight'}</span>
+                  <span>{buyerTier === 'RETAIL' ? `Local household eco-delivery (₹${marketRules.retailDeliveryFee})` : `Shared 4°C reefer truck freight (₹${marketRules.wholesaleBaseFreight} base)`}</span>
                   <span className="font-mono font-semibold">
-                    ₹{buyerTier === 'RETAIL' ? 25 : Math.max(150, Math.round(purchaseQuantity * 2.2))}
+                    ₹{buyerTier === 'RETAIL' ? marketRules.retailDeliveryFee : Math.max(marketRules.wholesaleBaseFreight, Math.round(purchaseQuantity * marketRules.wholesalePerKgFreight))}
                   </span>
                 </div>
                 <div className="flex justify-between text-stone-900 font-bold pt-1.5 border-t border-stone-200">
@@ -638,7 +656,7 @@ export const BuyerMarketplace: React.FC = () => {
                   <span className="font-mono text-sm">
                     ₹{(
                       (Math.round(purchaseQuantity * selectedProduct.pricePerKg * 100) / 100) + 
-                      (buyerTier === 'RETAIL' ? 25 : Math.max(150, Math.round(purchaseQuantity * 2.2)))
+                      (buyerTier === 'RETAIL' ? marketRules.retailDeliveryFee : Math.max(marketRules.wholesaleBaseFreight, Math.round(purchaseQuantity * marketRules.wholesalePerKgFreight)))
                     ).toLocaleString('en-IN')}
                   </span>
                 </div>
@@ -647,8 +665,8 @@ export const BuyerMarketplace: React.FC = () => {
               <button
                 type="submit"
                 disabled={
-                  (buyerTier === 'RETAIL' && purchaseQuantity > 2) ||
-                  (buyerTier === 'WHOLESALE' && purchaseQuantity < 25) ||
+                  (buyerTier === 'RETAIL' && marketRules.isRationingActive && purchaseQuantity > marketRules.retailMaxQtyKg) ||
+                  (buyerTier === 'WHOLESALE' && purchaseQuantity < marketRules.wholesaleMinQtyKg) ||
                   purchaseQuantity <= 0
                 }
                 className={`w-full py-3 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -657,7 +675,7 @@ export const BuyerMarketplace: React.FC = () => {
                     : 'bg-blue-700 hover:bg-blue-800'
                 }`}
               >
-                {buyerTier === 'RETAIL' ? 'Confirm Household Purchase (Max 2 kg)' : 'Confirm Wholesale Order (B2B)'}
+                {buyerTier === 'RETAIL' ? `Confirm Household Purchase (Max ${marketRules.retailMaxQtyKg} kg)` : `Confirm Wholesale Order (Min ${marketRules.wholesaleMinQtyKg} kg)`}
               </button>
             </form>
           </div>

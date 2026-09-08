@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, UserRole, OrderStatus, UserProfile, BuyerTier } from '../types';
+import { Product, Order, UserRole, OrderStatus, UserProfile, BuyerTier, MarketRules } from '../types';
 import { 
   fetchProducts, 
   createProductListing, 
   fetchOrders, 
   submitOrder, 
-  updateOrderStatusApi 
+  updateOrderStatusApi,
+  fetchMarketRulesApi,
+  updateMarketRulesApi
 } from '../services/api';
 
 export type AppView = 
@@ -50,6 +52,8 @@ interface AppContextType {
     buyerTier?: BuyerTier;
   }) => { success: boolean; order?: Order; error?: string };
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
+  marketRules: MarketRules;
+  updateMarketRules: (rules: Partial<MarketRules>) => Promise<boolean>;
   resetDemoData: () => void;
   showJudgeGuide: boolean;
   setShowJudgeGuide: (show: boolean) => void;
@@ -122,6 +126,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem(STORAGE_LANG_KEY);
     return (saved as 'hi' | 'en') || 'en';
   });
+
+  const [marketRules, setMarketRules] = useState<MarketRules>(() => {
+    return {
+      retailMaxQtyKg: 2.0,
+      wholesaleMinQtyKg: 25.0,
+      retailDeliveryFee: 25.0,
+      wholesaleBaseFreight: 150.0,
+      wholesalePerKgFreight: 2.2,
+      isRationingActive: true,
+      rationingReason: 'Essential Commodities Price Stabilization Directive #FD-2026',
+    };
+  });
+
+  useEffect(() => {
+    fetchMarketRulesApi()
+      .then((rules) => {
+        if (rules && rules.retailMaxQtyKg) {
+          setMarketRules(rules);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const updateMarketRules = async (rules: Partial<MarketRules>): Promise<boolean> => {
+    setMarketRules((prev) => ({ ...prev, ...rules }));
+    const res = await updateMarketRulesApi(rules);
+    if (res.success && res.rules) {
+      setMarketRules(res.rules);
+    }
+    showToast(
+      'success',
+      'Market Policy Updated',
+      `Retail Cap: ${rules.retailMaxQtyKg ?? marketRules.retailMaxQtyKg} kg · Wholesale MOQ: ${rules.wholesaleMinQtyKg ?? marketRules.wholesaleMinQtyKg} kg`
+    );
+    return res.success;
+  };
 
   const setIsAuthenticated = (auth: boolean) => {
     setIsAuthenticatedState(auth);
@@ -339,24 +379,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const tier = params.buyerTier || buyerTier;
 
-    // Normal Buyer / Direct Household purchase cap: 2 kg
-    if (tier === 'RETAIL' && params.quantity > 2) {
+    // Normal Buyer / Direct Household purchase cap governed dynamically by Admin marketRules
+    if (tier === 'RETAIL' && marketRules.isRationingActive && params.quantity > marketRules.retailMaxQtyKg) {
       showToast(
         'error',
-        'Retail Limit: Max 2 kg',
-        'Normal household buyers can purchase a maximum of 2 kg per crop to prevent hoarding and ensure fair rationing.'
+        `Retail Limit: Max ${marketRules.retailMaxQtyKg} kg`,
+        `Normal household buyers can purchase a maximum of ${marketRules.retailMaxQtyKg} kg per crop to prevent hoarding (${marketRules.rationingReason}).`
       );
-      return { success: false, error: 'Maximum retail purchase limit is 2 kg per crop.' };
+      return { 
+        success: false, 
+        error: `Maximum retail purchase limit is ${marketRules.retailMaxQtyKg} kg per crop.` 
+      };
     }
 
-    // Commercial Wholesale MOQ: 25 kg
-    if (tier === 'WHOLESALE' && params.quantity < 25) {
+    // Commercial Wholesale MOQ governed dynamically by Admin marketRules
+    if (tier === 'WHOLESALE' && params.quantity < marketRules.wholesaleMinQtyKg) {
       showToast(
         'error',
-        'Wholesale Minimum: Min 25 kg',
-        'Commercial wholesale orders require a minimum batch of 25 kg.'
+        `Wholesale Minimum: Min ${marketRules.wholesaleMinQtyKg} kg`,
+        `Commercial wholesale orders require a minimum batch of ${marketRules.wholesaleMinQtyKg} kg for commercial freight.`
       );
-      return { success: false, error: 'Minimum wholesale quantity is 25 kg.' };
+      return { 
+        success: false, 
+        error: `Minimum wholesale quantity is ${marketRules.wholesaleMinQtyKg} kg.` 
+      };
     }
 
     if (params.quantity > product.quantity) {
@@ -371,8 +417,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Calculate transparent pricing
     const producePrice = Math.round(params.quantity * product.pricePerKg * 100) / 100;
     const isRetail = tier === 'RETAIL';
-    // Local household delivery ₹25 vs industrial refrigerated reefer logistics
-    const logisticsFee = isRetail ? 25 : Math.max(150, Math.round(params.quantity * 2.2));
+    // Dynamic logistics calculation from Admin marketRules
+    const logisticsFee = isRetail 
+      ? marketRules.retailDeliveryFee 
+      : Math.max(marketRules.wholesaleBaseFreight, Math.round(params.quantity * marketRules.wholesalePerKgFreight));
     const finalAmount = producePrice + logisticsFee;
 
     const newOrder: Order = {
@@ -483,6 +531,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addProduct,
         placeOrder,
         updateOrderStatus,
+        marketRules,
+        updateMarketRules,
         resetDemoData,
         showJudgeGuide,
         setShowJudgeGuide,

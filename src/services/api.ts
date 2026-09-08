@@ -1,4 +1,4 @@
-import { Product, Order, OrderStatus } from '../types';
+import { Product, Order, OrderStatus, MarketRules } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -337,6 +337,38 @@ export async function updateAdminKycRecordApi(userId: string, data: {
         return res.ok;
     } catch {
         return false;
+    }
+}
+
+export async function fetchMarketRulesApi(): Promise<MarketRules> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/market-rules`);
+        if (!res.ok) throw new Error('Failed to fetch market rules');
+        return await res.json();
+    } catch {
+        return {
+            retailMaxQtyKg: 2.0,
+            wholesaleMinQtyKg: 25.0,
+            retailDeliveryFee: 25.0,
+            wholesaleBaseFreight: 150.0,
+            wholesalePerKgFreight: 2.2,
+            isRationingActive: true,
+            rationingReason: 'Essential Commodities Price Stabilization Directive #FD-2026',
+        };
+    }
+}
+
+export async function updateMarketRulesApi(rules: Partial<MarketRules>): Promise<{ success: boolean; rules?: MarketRules }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/market-rules`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rules),
+        });
+        if (!res.ok) throw new Error('Failed to update market rules');
+        return await res.json();
+    } catch {
+        return { success: false };
     }
 }
 
