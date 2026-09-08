@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCategory } from '../types';
 import { 
@@ -62,6 +62,7 @@ export const FarmerDashboard: React.FC = () => {
 
   const [produceImage, setProduceImage] = useState<string>('');
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [marketRates, setMarketRates] = useState<any[]>([]);
 
@@ -143,15 +144,51 @@ export const FarmerDashboard: React.FC = () => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setIsCapturingPhoto(false);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) {
+        setProduceImage(reader.result as string);
+      }
+      setIsCapturingPhoto(false);
+    };
+    reader.onerror = () => {
+      setIsCapturingPhoto(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleCapturePhoto = async () => {
     setIsCapturingPhoto(true);
+
+    // If file input ref is present on web, directly click it for instant native OS camera/file dialog
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+      setTimeout(() => {
+        setIsCapturingPhoto(false);
+      }, 2000);
+      return;
+    }
+
     try {
-      const photo = await captureProducePhoto();
-      if (photo.imageUrl) {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 4000)
+      );
+      const photo = await Promise.race([captureProducePhoto(), timeoutPromise]);
+      if (photo?.imageUrl) {
         setProduceImage(photo.imageUrl);
       }
     } catch {
-      // User cancelled or camera dismissed
+      // Fallback to file input
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     } finally {
       setIsCapturingPhoto(false);
     }
@@ -216,11 +253,41 @@ export const FarmerDashboard: React.FC = () => {
   };
 
   const cropPresets = [
-    { name: 'Tomato', label: isHindi ? 'टमाटर' : 'Tomato', price: 27, cat: 'Vegetables' as ProductCategory },
-    { name: 'Potato', label: isHindi ? 'आलू' : 'Potato', price: 18, cat: 'Vegetables' as ProductCategory },
-    { name: 'Onion', label: isHindi ? 'प्याज' : 'Onion', price: 28, cat: 'Vegetables' as ProductCategory },
-    { name: 'Wheat', label: isHindi ? 'गेहूं' : 'Wheat', price: 31, cat: 'Grains' as ProductCategory },
-    { name: 'Mustard', label: isHindi ? 'सरसों' : 'Mustard', price: 52, cat: 'Grains' as ProductCategory },
+    { 
+      name: 'Tomato', 
+      label: isHindi ? 'टमाटर' : 'Tomato', 
+      price: 27, 
+      cat: 'Vegetables' as ProductCategory,
+      image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80'
+    },
+    { 
+      name: 'Potato', 
+      label: isHindi ? 'आलू' : 'Potato', 
+      price: 18, 
+      cat: 'Vegetables' as ProductCategory,
+      image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80'
+    },
+    { 
+      name: 'Onion', 
+      label: isHindi ? 'प्याज' : 'Onion', 
+      price: 28, 
+      cat: 'Vegetables' as ProductCategory,
+      image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80'
+    },
+    { 
+      name: 'Wheat', 
+      label: isHindi ? 'गेहूं' : 'Wheat', 
+      price: 31, 
+      cat: 'Grains' as ProductCategory,
+      image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80'
+    },
+    { 
+      name: 'Mustard', 
+      label: isHindi ? 'सरसों' : 'Mustard', 
+      price: 52, 
+      cat: 'Grains' as ProductCategory,
+      image: 'https://images.unsplash.com/photo-1508747703725-719777637510?w=600&auto=format&fit=crop&q=80'
+    },
   ];
 
   return (
@@ -606,6 +673,9 @@ export const FarmerDashboard: React.FC = () => {
                       setCropName(preset.name);
                       setPricePerKg(preset.price);
                       setCategory(preset.cat);
+                      if (!produceImage) {
+                        setProduceImage(preset.image);
+                      }
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
                       cropName === preset.name
@@ -634,34 +704,84 @@ export const FarmerDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  {isHindi ? 'फसल की तस्वीर (कैमरा / गैलरी)' : 'Crop Photo (Camera / Photos)'}
-                </label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                />
+
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    {isHindi ? 'फसल की तस्वीर (कैमरा / गैलरी)' : 'Crop Photo (Camera / Photos)'}
+                  </label>
+                  {!produceImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matched = cropPresets.find(p => p.name.toLowerCase() === cropName.toLowerCase());
+                        setProduceImage(matched ? matched.image : 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80');
+                      }}
+                      className="text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                    >
+                      {isHindi ? '+ नमूना फोटो लगाएं' : '+ Use Sample Photo'}
+                    </button>
+                  )}
+                </div>
+
                 {produceImage ? (
                   <div className="relative rounded-xl overflow-hidden border border-stone-200">
-                    <img src={produceImage} alt="Crop capture" className="w-full h-32 object-cover" />
+                    <img src={produceImage} alt="Crop capture" className="w-full h-36 object-cover" />
                     <button
                       type="button"
                       onClick={() => setProduceImage('')}
                       className="absolute top-2 right-2 bg-stone-900/70 hover:bg-stone-900 text-white p-1 rounded-full text-xs transition-colors cursor-pointer"
+                      title="Remove image"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
+                    <div className="absolute bottom-2 left-2 bg-emerald-950/80 text-white text-[10px] px-2 py-0.5 rounded font-medium">
+                      {isHindi ? 'तस्वीर संलग्न है' : 'Photo Attached'}
+                    </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleCapturePhoto}
-                    disabled={isCapturingPhoto}
-                    className="w-full py-2.5 px-3 border border-dashed border-stone-300 hover:border-emerald-600 rounded-xl text-xs font-medium text-stone-600 hover:text-emerald-800 flex items-center justify-center gap-2 bg-stone-50 transition-colors cursor-pointer"
-                  >
-                    <CameraIcon className="w-4 h-4 text-emerald-700" />
-                    <span>
-                      {isCapturingPhoto
-                        ? (isHindi ? 'कैमरा खुल रहा है...' : 'Opening camera...')
-                        : (isHindi ? 'कैमरा से फोटो खींचें / अपलोड करें' : 'Take Crop Photo with Camera')}
-                    </span>
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleCapturePhoto}
+                      disabled={isCapturingPhoto}
+                      className="w-full py-2.5 px-3 border border-dashed border-stone-300 hover:border-emerald-600 rounded-xl text-xs font-medium text-stone-600 hover:text-emerald-800 flex items-center justify-center gap-2 bg-stone-50 transition-colors cursor-pointer"
+                    >
+                      <CameraIcon className="w-4 h-4 text-emerald-700" />
+                      <span>
+                        {isCapturingPhoto
+                          ? (isHindi ? 'कैमरा / फ़ाइल चयनकर्ता खुल रहा है...' : 'Opening Camera / Photo Picker...')
+                          : (isHindi ? 'कैमरा से फोटो खींचें / अपलोड करें' : 'Take Crop Photo with Camera / Upload')}
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-2 text-[11px] text-stone-400">
+                      <span>{isHindi ? 'या नमूना चुनें:' : 'Or tap sample:'}</span>
+                      <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                        {cropPresets.map((p) => (
+                          <button
+                            key={p.name}
+                            type="button"
+                            onClick={() => {
+                              setCropName(p.name);
+                              setPricePerKg(p.price);
+                              setProduceImage(p.image);
+                            }}
+                            className="px-2 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[10px] font-medium transition-colors cursor-pointer shrink-0"
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
