@@ -5,7 +5,7 @@ export type ProductCategory = 'Vegetables' | 'Grains' | 'Fruits' | 'Pulses' | 'S
 
 export type ProductQuality = 'Grade A+ (Export Quality)' | 'Grade A (Premium)' | 'Grade B (Standard)' | 'Organic Certified';
 
-export type OrderStatus = 'Pending' | 'Confirmed' | 'In Transit' | 'Delivered';
+export type OrderStatus = 'Pending' | 'Confirmed' | 'In Transit' | 'Delivered' | 'Cancelled';
 
 export interface Product {
   id: string;
@@ -21,6 +21,8 @@ export interface Product {
   farmerPhone: string;
   farmerRating: number;
   imageUrl?: string;
+  photoUpdatedAt?: string; // Timestamp when farmer last uploaded/verified produce photo
+  photoExpiryHours?: number; // Overrideable lot-level photo expiry (default governed by Admin MarketRules)
   description?: string;
   isDemoAdded?: boolean;
   variety?: string;
@@ -65,10 +67,13 @@ export interface Order {
   produceRating?: number;
   logisticsRating?: number;
   ratedAt?: string;
-  paymentStatus?: 'PAID_ESCROW_LOCKED' | 'PAYOUT_RELEASED' | 'PENDING';
+  paymentStatus?: 'PAID_ESCROW_LOCKED' | 'PAYOUT_RELEASED' | 'PENDING' | 'REFUNDED_TO_BUYER';
   paymentId?: string;
   paymentMode?: string;
   cfOrderId?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  cancelledBy?: 'BUYER' | 'FARMER' | 'ADMIN';
 }
 
 export interface HistoricalDemandPoint {
@@ -196,6 +201,12 @@ export interface MarketRules {
   wholesalePerKgFreight: number;
   isRationingActive: boolean;
   rationingReason: string;
+  // --- Dynamic Produce Photo Freshness & Cancellation SLA (Governed by Admin) ---
+  photoWarningHours: number;             // Hours threshold for Amber seller warning (default 12)
+  photoExpiryHours: number;              // Hours threshold for Red hard purchase lock (default 24)
+  isPhotoSlaEnforced: boolean;           // Whether purchase locking is actively enforced by Admin
+  allowPreShipmentCancellation: boolean; // Whether buyers & farmers can cancel orders before dispatch
+  cancellationRefundPercent: number;     // Percentage of escrow refunded on pre-shipment cancel (default 100%)
   updatedAt?: string;
 }
 

@@ -20,12 +20,15 @@ import {
   SlidersHorizontal,
   RotateCcw,
   QrCode,
-  Award
+  Award,
+  Clock
 } from 'lucide-react';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
+import { OrderCancelModal } from './OrderCancelModal';
+import { getProduceFreshnessInfo } from '../utils/freshnessSla';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -51,11 +54,16 @@ export const BuyerMarketplace: React.FC = () => {
 
   // Orders tab search & filter
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Confirmed' | 'In Transit' | 'Delivered' | 'UNRATED'>('ALL');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Confirmed' | 'In Transit' | 'Delivered' | 'Cancelled' | 'UNRATED'>('ALL');
 
   // Rating modal state
   const [selectedRatingOrder, setSelectedRatingOrder] = useState<Order | null>(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+
+  // Cancellation modal state
+  const [selectedCancelOrder, setSelectedCancelOrder] = useState<Order | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [photoRequestNotice, setPhotoRequestNotice] = useState<string | null>(null);
 
   // Purchase modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -254,6 +262,7 @@ export const BuyerMarketplace: React.FC = () => {
                 { id: 'Confirmed', label: isHindi ? 'स्वीकृत' : 'Confirmed' },
                 { id: 'In Transit', label: isHindi ? 'मार्ग पर' : 'In Transit' },
                 { id: 'Delivered', label: isHindi ? 'डिलीवर हुए' : 'Delivered' },
+                { id: 'Cancelled', label: isHindi ? 'रद्द (Refunded)' : 'Cancelled' },
                 { id: 'UNRATED', label: isHindi ? 'रेटिंग बाकी' : 'Awaiting Rating ★' },
               ].map((tab) => (
                 <button
@@ -317,12 +326,35 @@ export const BuyerMarketplace: React.FC = () => {
                       <div className="text-base font-mono font-bold text-stone-900">
                         ₹{ord.finalAmount.toLocaleString('en-IN')}
                       </div>
-                      <div className="text-xs text-emerald-700 font-semibold mt-0.5">
-                        {ord.status}
+                      <div className={`text-xs font-semibold mt-0.5 ${
+                        ord.status === 'Cancelled'
+                          ? 'text-rose-600'
+                          : ord.status === 'Delivered'
+                          ? 'text-emerald-700'
+                          : ord.status === 'In Transit'
+                          ? 'text-blue-700'
+                          : 'text-amber-700'
+                      }`}>
+                        {ord.status === 'Cancelled' ? 'Cancelled (Refunded)' : ord.status}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Pre-Shipment Order Cancellation */}
+                      {(ord.status === 'Pending' || ord.status === 'Confirmed') && marketRules.allowPreShipmentCancellation && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCancelOrder(ord);
+                            setIsCancelModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                          title="Cancel Order & 100% Escrow Refund"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                          <span>{isHindi ? 'रद्द करें' : 'Cancel'}</span>
+                        </button>
+                      )}
                       {/* Rating Action Button */}
                       {ord.rating ? (
                         <button
@@ -660,12 +692,35 @@ export const BuyerMarketplace: React.FC = () => {
             </div>
           )}
 
+          {/* Photo Request Notice Toast */}
+          {photoRequestNotice && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center justify-between animate-fade-in">
+              <div className="flex items-center gap-2 font-medium">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{photoRequestNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPhotoRequestNotice(null)}
+                className="text-emerald-700 hover:text-emerald-900 font-bold ml-2 p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Product Listings Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((p) => (
+            {filteredProducts.map((p) => {
+              const freshness = getProduceFreshnessInfo(p, marketRules);
+              return (
               <div
                 key={p.id}
-                className="bg-white border border-stone-200 rounded-xl overflow-hidden hover:border-stone-300 transition-all flex flex-col"
+                className={`bg-white border rounded-xl overflow-hidden hover:border-stone-300 transition-all flex flex-col ${
+                  freshness.tier === 'EXPIRED' && marketRules.isPhotoSlaEnforced
+                    ? 'border-rose-300/80 shadow-xs'
+                    : 'border-stone-200'
+                }`}
               >
                 {/* Product Image */}
                 <div className="h-44 w-full bg-stone-100 overflow-hidden relative">
@@ -675,6 +730,19 @@ export const BuyerMarketplace: React.FC = () => {
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
+
+                  {/* Produce Freshness SLA Badge */}
+                  <div className={`absolute top-2.5 left-2.5 backdrop-blur-xs text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 shadow-xs ${
+                    freshness.tier === 'EXPIRED'
+                      ? 'bg-rose-600/90 text-white border-rose-700'
+                      : freshness.tier === 'EXPIRING_SOON'
+                      ? 'bg-amber-600/90 text-white border-amber-700'
+                      : 'bg-emerald-600/90 text-white border-emerald-700'
+                  }`}>
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>{freshness.hoursAgo}h ago · {isHindi ? freshness.badgeLabelHi : freshness.badgeLabelEn}</span>
+                  </div>
+
                   {p.quality && (
                     <span className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-semibold text-stone-800 px-2 py-0.5 rounded-md border border-stone-200 shadow-xs">
                       {p.quality}
@@ -683,7 +751,7 @@ export const BuyerMarketplace: React.FC = () => {
                 </div>
 
                 {/* Content */}
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1">
                     <h3 className="text-base font-semibold text-stone-900">{p.name.split('(')[0].trim()}</h3>
                     <div className="text-xs text-stone-500 flex items-center gap-1.5 flex-wrap">
@@ -705,6 +773,23 @@ export const BuyerMarketplace: React.FC = () => {
                       <span>· {p.location}</span>
                     </div>
                   </div>
+
+                  {/* Freshness Warning Banner for Stale Lots */}
+                  {freshness.isPurchaseLocked && (
+                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>{isHindi ? `फोटो ${marketRules.photoExpiryHours}h से पुरानी है। खरीद रोकी गई है।` : `Photo > ${marketRules.photoExpiryHours}h old. Purchase paused.`}</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setPhotoRequestNotice(`Fresh live photo requested from ${p.farmerName} for ${p.name}. Farmer has been notified.`)}
+                        className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold shrink-0 transition cursor-pointer"
+                      >
+                        {isHindi ? 'नया फोटो मांगें' : 'Request Photo'}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-stone-100 flex items-end justify-between">
                     <div>
@@ -733,32 +818,45 @@ export const BuyerMarketplace: React.FC = () => {
                         <QrCode className="w-4 h-4" />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenBuy(p)}
-                        className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                          buyerTier === 'RETAIL'
-                            ? 'bg-emerald-700 hover:bg-emerald-800'
-                            : 'bg-blue-700 hover:bg-blue-800'
-                        }`}
-                      >
-                        {buyerTier === 'RETAIL' ? (
-                          <>
-                            <ShoppingBag className="w-3.5 h-3.5" />
-                            <span>Buy (Max {marketRules.retailMaxQtyKg} kg)</span>
-                          </>
-                        ) : (
-                          <>
-                            <Building2 className="w-3.5 h-3.5" />
-                            <span>Buy Wholesale</span>
-                          </>
-                        )}
-                      </button>
+                      {freshness.isPurchaseLocked ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="px-3 py-2 bg-stone-200 text-stone-500 text-xs font-semibold rounded-lg cursor-not-allowed shrink-0 flex items-center gap-1 border border-stone-300"
+                          title={`Purchase locked: produce photo is ${freshness.hoursAgo}h old, exceeding the ${marketRules.photoExpiryHours}h Freshness SLA threshold.`}
+                        >
+                          <Clock className="w-3.5 h-3.5 text-rose-600" />
+                          <span>{isHindi ? 'फोटो पुरानी है (Locked)' : 'Photo Stale (Locked)'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenBuy(p)}
+                          className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                            buyerTier === 'RETAIL'
+                              ? 'bg-emerald-700 hover:bg-emerald-800'
+                              : 'bg-blue-700 hover:bg-blue-800'
+                          }`}
+                        >
+                          {buyerTier === 'RETAIL' ? (
+                            <>
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              <span>Buy (Max {marketRules.retailMaxQtyKg} kg)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span>Buy Wholesale</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
         </div>
@@ -1072,6 +1170,16 @@ export const BuyerMarketplace: React.FC = () => {
         product={selectedPassportProduct}
         order={selectedPassportOrder}
         isHindi={isHindi}
+      />
+
+      {/* Pre-Shipment Order Cancellation & Escrow Refund Modal */}
+      <OrderCancelModal
+        isOpen={isCancelModalOpen}
+        onClose={() => {
+          setIsCancelModalOpen(false);
+          setSelectedCancelOrder(null);
+        }}
+        order={selectedCancelOrder}
       />
 
     </div>

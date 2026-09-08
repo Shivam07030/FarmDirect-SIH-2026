@@ -142,6 +142,11 @@ let dynamicMarketRules = {
   wholesalePerKgFreight: 2.2,
   isRationingActive: true,
   rationingReason: 'Essential Commodities Price Stabilization Directive #FD-2026',
+  photoWarningHours: 12,
+  photoExpiryHours: 24,
+  isPhotoSlaEnforced: true,
+  allowPreShipmentCancellation: true,
+  cancellationRefundPercent: 100,
   updatedAt: new Date().toISOString(),
 };
 
@@ -259,12 +264,43 @@ async function initPaymentColumns() {
 }
 initPaymentColumns();
 
+async function initCancellationAndFreshnessColumns() {
+  try {
+    const [ordCols] = await pool.query(`SHOW COLUMNS FROM orders LIKE 'cancelled_at'`);
+    if (!ordCols || ordCols.length === 0) {
+      await pool.query(`
+        ALTER TABLE orders 
+          MODIFY COLUMN status VARCHAR(50) DEFAULT 'Confirmed',
+          ADD COLUMN cancelled_at TIMESTAMP NULL,
+          ADD COLUMN cancellation_reason TEXT NULL,
+          ADD COLUMN cancelled_by VARCHAR(50) NULL,
+          ADD COLUMN refund_amount DECIMAL(12, 2) DEFAULT 0
+      `);
+      console.log('Cancellation columns added to orders table in MySQL.');
+    }
+
+    const [prodCols] = await pool.query(`SHOW COLUMNS FROM products LIKE 'photo_updated_at'`);
+    if (!prodCols || prodCols.length === 0) {
+      await pool.query(`
+        ALTER TABLE products 
+          ADD COLUMN photo_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN photo_expiry_hours INT DEFAULT 24
+      `);
+      console.log('Photo freshness columns added to products table in MySQL.');
+    }
+  } catch (e) {
+    console.warn('initCancellationAndFreshnessColumns note:', e.message);
+  }
+}
+initCancellationAndFreshnessColumns();
+
 app.get('/api/admin/market-rules', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
     if (rows && rows.length > 0) {
       const r = rows[0];
       return res.json({
+        ...dynamicMarketRules,
         retailMaxQtyKg: Number(r.retail_max_qty_kg),
         wholesaleMinQtyKg: Number(r.wholesale_min_qty_kg),
         retailDeliveryFee: Number(r.retail_delivery_fee),
@@ -289,6 +325,11 @@ app.put('/api/admin/market-rules', async (req, res) => {
       wholesalePerKgFreight,
       isRationingActive,
       rationingReason,
+      photoWarningHours,
+      photoExpiryHours,
+      isPhotoSlaEnforced,
+      allowPreShipmentCancellation,
+      cancellationRefundPercent,
     } = req.body;
 
     if (retailMaxQtyKg !== undefined) dynamicMarketRules.retailMaxQtyKg = Number(retailMaxQtyKg);
@@ -298,6 +339,11 @@ app.put('/api/admin/market-rules', async (req, res) => {
     if (wholesalePerKgFreight !== undefined) dynamicMarketRules.wholesalePerKgFreight = Number(wholesalePerKgFreight);
     if (isRationingActive !== undefined) dynamicMarketRules.isRationingActive = Boolean(isRationingActive);
     if (rationingReason !== undefined) dynamicMarketRules.rationingReason = String(rationingReason);
+    if (photoWarningHours !== undefined) dynamicMarketRules.photoWarningHours = Number(photoWarningHours);
+    if (photoExpiryHours !== undefined) dynamicMarketRules.photoExpiryHours = Number(photoExpiryHours);
+    if (isPhotoSlaEnforced !== undefined) dynamicMarketRules.isPhotoSlaEnforced = Boolean(isPhotoSlaEnforced);
+    if (allowPreShipmentCancellation !== undefined) dynamicMarketRules.allowPreShipmentCancellation = Boolean(allowPreShipmentCancellation);
+    if (cancellationRefundPercent !== undefined) dynamicMarketRules.cancellationRefundPercent = Number(cancellationRefundPercent);
     dynamicMarketRules.updatedAt = new Date().toISOString();
 
     try {
@@ -1166,7 +1212,9 @@ app.get('/api/products', async (req, res) => {
          u.phone AS farmerPhone,
          COALESCE(fp.rating, 4.9) AS farmerRating,
          p.image_url AS imageUrl,
-         p.status
+         p.status,
+         DATE_FORMAT(COALESCE(p.photo_updated_at, p.created_at), '%Y-%m-%dT%H:%i:%s.000Z') AS photoUpdatedAt,
+         COALESCE(p.photo_expiry_hours, 24) AS photoExpiryHours
        FROM products p
        JOIN users u ON p.farmer_id = u.id
        JOIN categories c ON p.category_id = c.id
@@ -1178,6 +1226,7 @@ app.get('/api/products', async (req, res) => {
       ...p,
       pricePerKg: Number(p.pricePerKg),
       farmerRating: Number(p.farmerRating),
+      photoExpiryHours: Number(p.photoExpiryHours || 24),
     }));
 
     res.json(products);
@@ -1304,6 +1353,11 @@ app.get('/api/orders', async (req, res) => {
          o.final_amount AS finalAmount,
          o.delivery_location AS deliveryLocation,
          o.status,
+         COALESCE(o.payment_status, 'PAID_ESCROW_LOCKED') AS paymentStatus,
+         DATE_FORMAT(o.cancelled_at, '%Y-%m-%d %H:%i') AS cancelledAt,
+         o.cancellation_reason AS cancellationReason,
+         o.cancelled_by AS cancelledBy,
+         o.refund_amount AS refundAmount,
          DATE_FORMAT(o.order_date, '%Y-%m-%d') AS orderDate,
          COALESCE(s.estimated_delivery, 'Tomorrow · 10:00 AM') AS estimatedDelivery,
          s.vehicle_number AS vehicleNumber,
@@ -1331,6 +1385,11 @@ app.get('/api/orders', async (req, res) => {
       return {
         ...o,
         deliveryOtp: o.deliveryOtp || fallbackOtp,
+        paymentStatus: o.paymentStatus || 'PAID_ESCROW_LOCKED',
+        cancelledAt: o.cancelledAt || undefined,
+        cancellationReason: o.cancellationReason || undefined,
+        cancelledBy: o.cancelledBy || undefined,
+        refundAmount: o.refundAmount != null ? Number(o.refundAmount) : undefined,
         pricePerKg: Number(o.pricePerKg),
         totalPrice: Number(o.totalPrice),
         logisticsFee: Number(o.logisticsFee),
@@ -1480,6 +1539,117 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   } catch (err) {
     console.error('update order status error:', err);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+app.post('/api/orders/:id/cancel', async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { id } = req.params;
+    const { reason, cancelledBy } = req.body;
+
+    if (!dynamicMarketRules.allowPreShipmentCancellation) {
+      return res.status(403).json({ error: 'Order cancellation is currently disabled by administrator policy.' });
+    }
+
+    await connection.beginTransaction();
+
+    const [orderRows] = await connection.query(
+      `SELECT o.id, o.status, o.final_amount, oi.product_id, oi.quantity
+       FROM orders o
+       LEFT JOIN order_items oi ON o.id = oi.order_id
+       WHERE o.id = ? FOR UPDATE`,
+      [id]
+    );
+
+    if (!orderRows || orderRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderRows[0];
+    if (order.status === 'In Transit' || order.status === 'Delivered') {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Cancellation is only allowed prior to shipment dispatch.' });
+    }
+
+    if (order.status === 'Cancelled') {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Order is already cancelled.' });
+    }
+
+    const refundPercent = dynamicMarketRules.cancellationRefundPercent ?? 100;
+    const refundAmount = Number(((Number(order.final_amount) * refundPercent) / 100).toFixed(2));
+
+    await connection.query(
+      `UPDATE orders SET 
+         status = 'Cancelled', 
+         payment_status = 'REFUNDED_TO_BUYER', 
+         cancelled_at = NOW(), 
+         cancellation_reason = ?, 
+         cancelled_by = ?,
+         refund_amount = ?
+       WHERE id = ?`,
+      [reason || 'Buyer requested cancellation before dispatch', cancelledBy || 'Buyer', refundAmount, id]
+    );
+
+    await connection.query('UPDATE shipments SET status = "Cancelled" WHERE order_id = ?', [id]);
+
+    for (const item of orderRows) {
+      if (item.product_id && item.quantity) {
+        await connection.query(
+          'UPDATE products SET quantity = quantity + ? WHERE id = ?',
+          [Number(item.quantity), item.product_id]
+        );
+      }
+    }
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      id,
+      status: 'Cancelled',
+      paymentStatus: 'REFUNDED_TO_BUYER',
+      refundAmount,
+      message: `Order successfully cancelled. ₹${refundAmount} (${refundPercent}%) refunded to buyer escrow.`
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('cancel order error:', err);
+    res.status(500).json({ error: 'Failed to cancel order' });
+  } finally {
+    connection.release();
+  }
+});
+
+app.patch('/api/products/:id/refresh-photo', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Valid fresh image URL is required' });
+    }
+
+    await pool.query(
+      `UPDATE products 
+       SET image_url = ?, photo_updated_at = NOW(), status = 'ACTIVE' 
+       WHERE id = ?`,
+      [imageUrl, id]
+    );
+
+    res.json({
+      success: true,
+      id,
+      imageUrl,
+      photoUpdatedAt: new Date().toISOString(),
+      status: 'ACTIVE',
+      message: 'Product photo refreshed and produce listing verified fresh.'
+    });
+  } catch (err) {
+    console.error('refresh product photo error:', err);
+    res.status(500).json({ error: 'Failed to refresh product photo' });
   }
 });
 

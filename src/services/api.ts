@@ -360,6 +360,32 @@ export async function updateOrderStatusApi(orderId: string, status: OrderStatus)
     }
 }
 
+export async function cancelOrderApi(orderId: string, reason?: string, cancelledBy?: string): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, cancelledBy }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function refreshProductPhotoApi(productId: string, imageUrl: string): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/products/${productId}/refresh-photo`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 export async function rateOrderApi(
     orderId: string,
     ratingData: {

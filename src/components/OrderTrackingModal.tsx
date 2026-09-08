@@ -25,6 +25,8 @@ import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { releaseCashfreePayoutApi } from '../services/api';
+import { useApp } from '../context/AppContext';
+import { OrderCancelModal } from './OrderCancelModal';
 
 interface OrderTrackingModalProps {
   order: Order | null;
@@ -43,11 +45,13 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   onUpdateStatus,
   isHindi = false,
 }) => {
+  const { marketRules } = useApp();
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isPassportOpen, setIsPassportOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -185,9 +189,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-6">
 
-          {/* Amazon-Style Headline Banner */}
+          {/* Headline Banner */}
           <div className={`p-4 rounded-2xl border transition-all ${
-            order.status === 'Delivered'
+            order.status === 'Cancelled'
+              ? 'bg-rose-50 border-rose-300 text-rose-950'
+              : order.status === 'Delivered'
               ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
               : order.status === 'In Transit'
               ? 'bg-amber-50/80 border-amber-300 text-amber-950'
@@ -197,14 +203,18 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${
-                    order.status === 'Delivered'
+                    order.status === 'Cancelled'
+                      ? 'bg-rose-600'
+                      : order.status === 'Delivered'
                       ? 'bg-emerald-600'
                       : order.status === 'In Transit'
                       ? 'bg-amber-500 animate-ping'
                       : 'bg-blue-600'
                   }`} />
                   <span className="text-xs font-bold uppercase tracking-wider">
-                    {order.status === 'Delivered'
+                    {order.status === 'Cancelled'
+                      ? (isHindi ? 'ऑर्डर रद्द (रिफंड पूरा)' : 'Order Cancelled · Refunded')
+                      : order.status === 'Delivered'
                       ? (isHindi ? 'डिलीवरी संपन्न' : 'Delivered')
                       : order.status === 'In Transit'
                       ? (isHindi ? 'मार्ग पर सक्रिय' : 'On the Way (Live)')
@@ -212,20 +222,28 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                   </span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold font-serif mt-1">
-                  {order.status === 'Delivered'
+                  {order.status === 'Cancelled'
+                    ? (isHindi ? `₹${order.refundAmount || order.finalAmount} खरीदार खाते में रिफंड किया गया` : `₹${order.refundAmount || order.finalAmount} Escrow Refund Complete`)
+                    : order.status === 'Delivered'
                     ? (isHindi ? 'सफलतापूर्वक सुरक्षित डिलीवर किया गया' : 'Package Delivered Safely')
                     : (isHindi ? `अनुमानित आगमन: ${order.estimatedDelivery}` : `Arriving by ${order.estimatedDelivery}`)}
                 </h3>
                 <p className="text-xs mt-1 opacity-80">
-                  {order.status === 'Delivered'
+                  {order.status === 'Cancelled'
+                    ? (order.cancellationReason || (isHindi ? 'डिस्पैच से पहले रद्द किया गया और स्टॉक किसान को लौटा दिया गया।' : 'Cancelled before dispatch. Produce stock released back to farmer.'))
+                    : order.status === 'Delivered'
                     ? (isHindi ? 'डिजिटल पावती पर हस्ताक्षर हुआ और किसान को भुगतान जारी हुआ।' : 'Digital POD confirmed and farmer escrow settlement released.')
                     : (isHindi ? `वाहन ${vehicleNo} के माध्यम से सुरक्षित कोल्ड-चेन परिवहन।` : `Chilled transit monitored via IoT sensor (${temperature}°C).`)}
                 </p>
               </div>
 
               <div className="text-right shrink-0">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-white/80 border border-current">
-                  {viewerRole === 'FARMER' ? (isHindi ? 'विक्रेता (किसान)' : 'Seller View') : (isHindi ? 'खरीदार (क्रेता)' : 'Buyer View')}
+                <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
+                  order.status === 'Cancelled'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : 'bg-white/80 border-current'
+                }`}>
+                  {order.status === 'Cancelled' ? 'REFUNDED' : viewerRole === 'FARMER' ? (isHindi ? 'विक्रेता (किसान)' : 'Seller View') : (isHindi ? 'खरीदार (क्रेता)' : 'Buyer View')}
                 </span>
               </div>
             </div>
@@ -658,6 +676,19 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 <span>{order.rating ? `★ ${order.rating}.0` : isHindi ? 'रेटिंग दें' : 'Rate Order'}</span>
               </button>
             )}
+
+            {/* Pre-Shipment Cancellation Button */}
+            {(order.status === 'Pending' || order.status === 'Confirmed') && marketRules.allowPreShipmentCancellation && (
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(true)}
+                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                title="Cancel Order & 100% Escrow Refund before dispatch"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isHindi ? 'ऑर्डर रद्द करें' : 'Cancel Order'}</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -698,6 +729,17 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
         onClose={() => setIsPassportOpen(false)}
         order={order}
         isHindi={isHindi}
+      />
+
+      {/* Embedded Pre-Shipment Order Cancellation Modal */}
+      <OrderCancelModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        order={order}
+        onCancelled={() => {
+          setIsCancelModalOpen(false);
+          onClose();
+        }}
       />
     </div>
   );

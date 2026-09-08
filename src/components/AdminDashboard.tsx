@@ -31,7 +31,9 @@ import {
   Ban,
   AlertTriangle,
   ShieldAlert,
-  Clock
+  Clock,
+  Camera,
+  RotateCcw
 } from 'lucide-react';
 import { LogisticsMap } from './LogisticsMap';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -72,7 +74,12 @@ export const AdminDashboard: React.FC = () => {
     wholesaleBaseFreight: 150,
     wholesalePerKgFreight: 2.2,
     isRationingActive: true,
-    rationingReason: 'Essential Commodities Price Stabilization Directive'
+    rationingReason: 'Essential Commodities Price Stabilization Directive',
+    photoWarningHours: 12,
+    photoExpiryHours: 24,
+    isPhotoSlaEnforced: true,
+    allowPreShipmentCancellation: true,
+    cancellationRefundPercent: 100,
   });
   const [policySaving, setPolicySaving] = useState(false);
   const [policySuccess, setPolicySuccess] = useState(false);
@@ -86,7 +93,12 @@ export const AdminDashboard: React.FC = () => {
         wholesaleBaseFreight: marketRules.wholesaleBaseFreight ?? 150,
         wholesalePerKgFreight: marketRules.wholesalePerKgFreight ?? 2.2,
         isRationingActive: marketRules.isRationingActive ?? true,
-        rationingReason: marketRules.rationingReason || ''
+        rationingReason: marketRules.rationingReason || '',
+        photoWarningHours: marketRules.photoWarningHours ?? 12,
+        photoExpiryHours: marketRules.photoExpiryHours ?? 24,
+        isPhotoSlaEnforced: marketRules.isPhotoSlaEnforced ?? true,
+        allowPreShipmentCancellation: marketRules.allowPreShipmentCancellation ?? true,
+        cancellationRefundPercent: marketRules.cancellationRefundPercent ?? 100,
       });
     }
   }, [marketRules]);
@@ -108,20 +120,13 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const applyPreset = async (preset: {
-    retailMaxQtyKg: number;
-    wholesaleMinQtyKg: number;
-    retailDeliveryFee: number;
-    wholesaleBaseFreight: number;
-    wholesalePerKgFreight: number;
-    isRationingActive: boolean;
-    rationingReason: string;
-  }) => {
-    setPolicyForm(preset);
+  const applyPreset = async (preset: Partial<typeof policyForm>) => {
+    const merged = { ...policyForm, ...preset };
+    setPolicyForm(merged);
     setPolicySaving(true);
     setPolicySuccess(false);
     try {
-      const ok = await updateMarketRules(preset);
+      const ok = await updateMarketRules(merged);
       if (ok) {
         setPolicySuccess(true);
         setTimeout(() => setPolicySuccess(false), 3500);
@@ -1849,6 +1854,225 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-[11px] text-stone-400">
                 This notice is prominently displayed on the consumer marketplace header and purchase confirmation modal.
               </p>
+            </div>
+          </div>
+
+          {/* Section 4: Produce Freshness SLA & Pre-Shipment Cancellation Governance */}
+          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-5 shadow-xs">
+            <div className="border-b border-stone-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 mb-1">
+                  <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                  Anti-Stale Produce & Buyer Trust SLA
+                </div>
+                <h3 className="text-base font-bold text-stone-900">
+                  Fresh Harvest Photo SLA & Order Cancellation Governance
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Ensures buyers never purchase decaying produce based on days-old photos. Enforces periodic photo re-verification and safe pre-dispatch order refunds.
+                </p>
+              </div>
+
+              {/* Dynamic SLA Presets */}
+              <div className="flex items-center gap-1.5 self-start sm:self-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    photoWarningHours: 6,
+                    photoExpiryHours: 12,
+                    isPhotoSlaEnforced: true,
+                    allowPreShipmentCancellation: true,
+                    cancellationRefundPercent: 100
+                  })}
+                  className={`px-2.5 py-1 text-[11px] rounded-lg font-medium border transition cursor-pointer ${
+                    policyForm.photoWarningHours === 6 && policyForm.photoExpiryHours === 12
+                      ? 'bg-emerald-100 border-emerald-300 text-emerald-900 font-bold'
+                      : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                  }`}
+                >
+                  Strict (6h/12h)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    photoWarningHours: 12,
+                    photoExpiryHours: 24,
+                    isPhotoSlaEnforced: true,
+                    allowPreShipmentCancellation: true,
+                    cancellationRefundPercent: 100
+                  })}
+                  className={`px-2.5 py-1 text-[11px] rounded-lg font-medium border transition cursor-pointer ${
+                    policyForm.photoWarningHours === 12 && policyForm.photoExpiryHours === 24
+                      ? 'bg-emerald-100 border-emerald-300 text-emerald-900 font-bold'
+                      : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                  }`}
+                >
+                  Standard (12h/24h)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    photoWarningHours: 24,
+                    photoExpiryHours: 48,
+                    isPhotoSlaEnforced: true,
+                    allowPreShipmentCancellation: true,
+                    cancellationRefundPercent: 100
+                  })}
+                  className={`px-2.5 py-1 text-[11px] rounded-lg font-medium border transition cursor-pointer ${
+                    policyForm.photoWarningHours === 24 && policyForm.photoExpiryHours === 48
+                      ? 'bg-emerald-100 border-emerald-300 text-emerald-900 font-bold'
+                      : 'border-stone-200 hover:bg-stone-50 text-stone-700'
+                  }`}
+                >
+                  Relaxed (24h/48h)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Part A: Photo Freshness SLA Configuration */}
+              <div className="p-4 rounded-xl border border-stone-200/90 bg-stone-50/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-800">
+                      Produce Photo Freshness SLA
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-xs font-medium text-stone-600">
+                      {policyForm.isPhotoSlaEnforced ? 'SLA Enforced' : 'SLA Paused'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={policyForm.isPhotoSlaEnforced}
+                      onChange={(e) => setPolicyForm({ ...policyForm, isPhotoSlaEnforced: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-stone-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 relative"></div>
+                  </label>
+                </div>
+
+                {/* Warning Hours Slider */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-stone-700">
+                      🟡 Refresh Warning Threshold (Seller Alert)
+                    </span>
+                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      {policyForm.photoWarningHours} Hours
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={4}
+                    max={36}
+                    step={1}
+                    value={policyForm.photoWarningHours}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setPolicyForm({
+                        ...policyForm,
+                        photoWarningHours: val,
+                        photoExpiryHours: Math.max(val + 4, policyForm.photoExpiryHours)
+                      });
+                    }}
+                    className="w-full h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                  />
+                  <p className="text-[11px] text-stone-500">
+                    When photo age reaches {policyForm.photoWarningHours}h, the produce card displays a yellow warning urging the farmer to upload a new harvest photo.
+                  </p>
+                </div>
+
+                {/* Expiry Hours Slider */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-stone-700">
+                      🔴 Stale Photo Expiry & Purchase Lock
+                    </span>
+                    <span className="font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                      {policyForm.photoExpiryHours} Hours
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={8}
+                    max={72}
+                    step={1}
+                    value={policyForm.photoExpiryHours}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setPolicyForm({
+                        ...policyForm,
+                        photoExpiryHours: val,
+                        photoWarningHours: Math.min(val - 4, policyForm.photoWarningHours)
+                      });
+                    }}
+                    className="w-full h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
+                  />
+                  <p className="text-[11px] text-stone-500">
+                    When photo exceeds {policyForm.photoExpiryHours}h, buyer purchase button is strictly locked. Listing requires 1-click photo update to reactivate.
+                  </p>
+                </div>
+              </div>
+
+              {/* Part B: Pre-Shipment Cancellation & Refund Governance */}
+              <div className="p-4 rounded-xl border border-stone-200/90 bg-stone-50/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-rose-600" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-800">
+                      Pre-Shipment Order Cancellation & Escrow
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-xs font-medium text-stone-600">
+                      {policyForm.allowPreShipmentCancellation ? 'Allowed' : 'Disabled'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={policyForm.allowPreShipmentCancellation}
+                      onChange={(e) => setPolicyForm({ ...policyForm, allowPreShipmentCancellation: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-stone-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600 relative"></div>
+                  </label>
+                </div>
+
+                {/* Refund Percentage */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-stone-700">
+                      Escrow Cancellation Refund Rate
+                    </span>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {policyForm.cancellationRefundPercent}% Refund
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={50}
+                    max={100}
+                    step={5}
+                    value={policyForm.cancellationRefundPercent}
+                    onChange={(e) => setPolicyForm({ ...policyForm, cancellationRefundPercent: Number(e.target.value) })}
+                    className="w-full h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                  />
+                  <p className="text-[11px] text-stone-500">
+                    Pre-dispatch cancellations refund {policyForm.cancellationRefundPercent}% of locked funds to the buyer and automatically release stock back to the market.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-stone-200/70 text-xs text-stone-600 space-y-1">
+                  <div className="flex items-center gap-1.5 font-semibold text-stone-800">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Cold Chain & Transit Protection Rule:
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Once the order status advances to <span className="font-semibold text-blue-700">In Transit</span> or <span className="font-semibold text-emerald-700">Delivered</span>, cancellation is permanently locked to protect booked reefer freight and farmer harvest commitments.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

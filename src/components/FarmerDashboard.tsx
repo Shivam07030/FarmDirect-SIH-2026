@@ -42,6 +42,8 @@ import { ProduceQualityScannerModal } from './ProduceQualityScannerModal';
 import { ProduceScanResult } from '../services/aiVisionService';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { MandiArbitrageMatrix } from './MandiArbitrageMatrix';
+import { PhotoRefreshModal } from './PhotoRefreshModal';
+import { getProduceFreshnessInfo } from '../utils/freshnessSla';
 import { Order, Product } from '../types';
 
 export const FarmerDashboard: React.FC = () => {
@@ -55,7 +57,8 @@ export const FarmerDashboard: React.FC = () => {
     updateCurrentUserProfile,
     activeTab,
     farmerStats,
-    language
+    language,
+    marketRules
   } = useApp();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -63,6 +66,8 @@ export const FarmerDashboard: React.FC = () => {
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
+  const [selectedRefreshProduct, setSelectedRefreshProduct] = useState<Product | null>(null);
+  const [isPhotoRefreshOpen, setIsPhotoRefreshOpen] = useState(false);
   const [grievanceOrderId, setGrievanceOrderId] = useState('');
 
   // 4 Showstopper Features State
@@ -857,23 +862,34 @@ export const FarmerDashboard: React.FC = () => {
 
             <div className="divide-y divide-stone-100">
               {myProduce.length > 0 ? (
-                myProduce.map((item) => (
+                myProduce.map((item) => {
+                  const freshness = getProduceFreshnessInfo(item, marketRules);
+                  return (
                   <div key={item.id} className="py-3 flex items-center justify-between">
                     <div>
                       <div className="text-sm font-semibold text-stone-900">{item.name}</div>
                       <div className="text-xs text-stone-500 mt-0.5">{item.quantity} kg · {item.location}</div>
+                      <div className="text-[10px] font-bold mt-1 text-stone-500 flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5" />
+                        <span>Photo {freshness.hoursAgo}h ago ({isHindi ? freshness.badgeLabelHi : freshness.badgeLabelEn})</span>
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-mono font-semibold text-stone-900">
                         ₹{item.pricePerKg}/kg
                       </div>
-                      <div className="text-[11px] text-emerald-700 font-medium mt-0.5 flex items-center gap-1 justify-end">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                        <span>{isHindi ? 'मंडी में लाइव' : 'Live on Market'}</span>
+                      <div className={`text-[11px] font-medium mt-0.5 flex items-center gap-1 justify-end ${
+                        freshness.isPurchaseLocked ? 'text-rose-600' : 'text-emerald-700'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          freshness.isPurchaseLocked ? 'bg-rose-600' : 'bg-emerald-600'
+                        }`} />
+                        <span>{freshness.isPurchaseLocked ? (isHindi ? 'बिक्री रोकी गई' : 'Sales Paused') : (isHindi ? 'मंडी में लाइव' : 'Live on Market')}</span>
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="py-4 text-center text-xs text-stone-400">
                   {isHindi ? 'कोई फसल उपलब्ध नहीं है।' : 'No produce listed yet.'}
@@ -891,6 +907,33 @@ export const FarmerDashboard: React.FC = () => {
             onListCropAtPrice={handleListFromArbitrage} 
             isHindi={isHindi} 
           />
+
+          {/* Produce Freshness SLA Alert Banner */}
+          {(() => {
+            const staleLots = myProduce.filter((p) => getProduceFreshnessInfo(p, marketRules).tier === 'EXPIRED');
+            if (staleLots.length === 0) return null;
+            return (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-950 animate-fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-bold block text-sm text-rose-900">
+                      {isHindi 
+                        ? `ताजगी SLA चेतावनी: आपकी ${staleLots.length} फसल लॉट की फोटो ${marketRules.photoExpiryHours} घंटे से अधिक पुरानी है।` 
+                        : `Freshness SLA Alert: ${staleLots.length} produce ${staleLots.length === 1 ? 'lot has' : 'lots have'} expired photos (${marketRules.photoExpiryHours}h SLA).`}
+                    </span>
+                    <span className="text-rose-700 text-xs">
+                      {isHindi 
+                        ? 'पुराने फोटो वाले लॉट पर खरीदारों के ऑर्डर रोक दिए गए हैं। बिक्री तुरंत पुनः सक्रिय करने के लिए "फोटो अपडेट करें" बटन दबाएं।' 
+                        : 'Buyer orders are paused on stale lots to protect both parties. Click "Update Photo" on the lot below to restore 100% active status.'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
             <div>
@@ -912,9 +955,11 @@ export const FarmerDashboard: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-stone-200 shadow-xs divide-y divide-stone-100 overflow-hidden">
-            {myProduce.map((p) => (
+            {myProduce.map((p) => {
+              const freshness = getProduceFreshnessInfo(p, marketRules);
+              return (
               <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
+                <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-stone-900 text-sm sm:text-base">{p.name}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
@@ -926,34 +971,79 @@ export const FarmerDashboard: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-stone-500 mt-0.5">
+                  <div className="text-xs text-stone-500">
                     {p.quantity} kg · {p.location} · {p.harvestDate}
+                  </div>
+
+                  {/* Freshness SLA Badge */}
+                  <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                      freshness.tier === 'EXPIRED'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : freshness.tier === 'EXPIRING_SOON'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    }`}>
+                      <Clock className="w-2.5 h-2.5" />
+                      <span>Photo {freshness.hoursAgo}h ago · {isHindi ? freshness.badgeLabelHi : freshness.badgeLabelEn}</span>
+                    </span>
+
+                    {freshness.isPurchaseLocked && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white">
+                        {isHindi ? 'बिक्री रोकी गई' : 'Sales Paused'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-auto">
+                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap sm:flex-nowrap">
+                  {/* Fresh Photo SLA Update Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRefreshProduct(p);
+                      setIsPhotoRefreshOpen(true);
+                    }}
+                    className={`px-2.5 py-1.5 border text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                      freshness.tier === 'EXPIRED'
+                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 font-bold animate-pulse'
+                        : freshness.tier === 'EXPIRING_SOON'
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                    }`}
+                    title="Take or upload fresh produce photo to reset SLA timer to 0h and reactivate"
+                  >
+                    <CameraIcon className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{isHindi ? 'ताज़ा फोटो' : 'Update Photo'}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedPassportProduct(p);
                       setIsPassportModalOpen(true);
                     }}
-                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
                   >
                     <QrCode className="w-3.5 h-3.5 text-emerald-700" />
                     <span>{isHindi ? 'डिजिटल पासपोर्ट' : 'Passport QR'}</span>
                   </button>
 
-                  <div className="text-right">
+                  <div className="text-right min-w-[70px]">
                     <div className="font-mono font-bold text-stone-900 text-base">₹{p.pricePerKg}/kg</div>
-                    <div className="text-xs text-emerald-700 font-medium mt-0.5 flex items-center gap-1 justify-end">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                      <span>{isHindi ? 'सक्रिय' : 'Active'}</span>
+                    <div className={`text-xs font-medium mt-0.5 flex items-center gap-1 justify-end ${
+                      freshness.isPurchaseLocked ? 'text-rose-600' : 'text-emerald-700'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        freshness.isPurchaseLocked ? 'bg-rose-600' : 'bg-emerald-600'
+                      }`} />
+                      <span>{freshness.isPurchaseLocked ? (isHindi ? 'रोकी गई' : 'Paused') : (isHindi ? 'सक्रिय' : 'Active')}</span>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1788,6 +1878,16 @@ export const FarmerDashboard: React.FC = () => {
         product={selectedPassportProduct}
         order={selectedPassportOrder}
         isHindi={isHindi}
+      />
+
+      {/* 4. Fresh Harvest Photo SLA Update Modal */}
+      <PhotoRefreshModal
+        isOpen={isPhotoRefreshOpen}
+        onClose={() => {
+          setIsPhotoRefreshOpen(false);
+          setSelectedRefreshProduct(null);
+        }}
+        product={selectedRefreshProduct}
       />
 
     </div>
