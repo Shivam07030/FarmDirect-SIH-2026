@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, Order, UserRole, OrderStatus } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS } from '../data/initialData';
+import { 
+  fetchProducts, 
+  createProductListing, 
+  fetchOrders, 
+  submitOrder, 
+  updateOrderStatusApi 
+} from '../services/api';
 
 export type AppView = 
   | 'landing'
@@ -165,9 +172,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_ROLE_KEY, role);
   }, [role]);
 
+  useEffect(() => {
+    async function loadBackendData() {
+      try {
+        const [dbProds, dbOrds] = await Promise.all([fetchProducts(), fetchOrders()]);
+        if (dbProds && dbProds.length > 0) {
+          setProducts(dbProds);
+        }
+        if (dbOrds && dbOrds.length > 0) {
+          setOrders(dbOrds);
+        }
+      } catch {
+        // keep local state
+      }
+    }
+    loadBackendData();
+  }, []);
+
   const setRole = (newRole: UserRole) => {
     setRoleState(newRole);
-    // Route to appropriate view on role change if currently on role dashboard
     if (newRole === 'FARMER') setCurrentView('farmer');
     else if (newRole === 'BUYER') setCurrentView('marketplace');
     else if (newRole === 'ADMIN') setCurrentView('admin');
@@ -194,6 +217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProducts((prev) => [newProduct, ...prev]);
+    createProductListing(productData).catch(() => {});
     showToast(
       'success',
       'Product Listed on Marketplace!',
@@ -259,8 +283,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    // Add order to orders list
     setOrders((prev) => [newOrder, ...prev]);
+    submitOrder(params).catch(() => {});
 
     showToast(
       'success',
@@ -275,6 +299,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
     );
+    updateOrderStatusApi(orderId, newStatus).catch(() => {});
     showToast('info', 'Order Status Updated', `Order ${orderId} marked as "${newStatus}".`);
   };
 
