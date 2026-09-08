@@ -55,6 +55,11 @@ export interface Order {
   driverPhone?: string;
   temperatureCelsius?: number;
   deliveryOtp?: string;
+  rating?: number;
+  reviewComment?: string;
+  produceRating?: number;
+  logisticsRating?: number;
+  ratedAt?: string;
 }
 
 export interface HistoricalDemandPoint {

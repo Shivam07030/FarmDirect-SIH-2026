@@ -72,6 +72,11 @@ CREATE TABLE orders (
   final_amount DECIMAL(12, 2) NOT NULL,
   delivery_location VARCHAR(255) NOT NULL,
   order_date DATE NOT NULL,
+  rating INT NULL,
+  review_comment TEXT NULL,
+  produce_rating INT NULL,
+  logistics_rating INT NULL,
+  rated_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE CASCADE
 );

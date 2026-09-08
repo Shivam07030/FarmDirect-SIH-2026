@@ -15,10 +15,14 @@ import {
   Sparkles, 
   Truck, 
   UserCheck,
-  LifeBuoy
+  LifeBuoy,
+  Star,
+  SlidersHorizontal,
+  RotateCcw
 } from 'lucide-react';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { GrievanceModal } from './GrievanceModal';
+import { RatingModal } from './RatingModal';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -39,6 +43,16 @@ export const BuyerMarketplace: React.FC = () => {
   const isHindi = language === 'hi';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedQuality, setSelectedQuality] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating-desc' | 'harvest-date'>('featured');
+
+  // Orders tab search & filter
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'Confirmed' | 'In Transit' | 'Delivered' | 'UNRATED'>('ALL');
+
+  // Rating modal state
+  const [selectedRatingOrder, setSelectedRatingOrder] = useState<Order | null>(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
   // Purchase modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -54,16 +68,29 @@ export const BuyerMarketplace: React.FC = () => {
   const [isGrievanceModalOpen, setIsGrievanceModalOpen] = useState(false);
   const [grievanceOrderId, setGrievanceOrderId] = useState('');
 
-  const categories = ['All', 'Vegetables', 'Fruits', 'Grains', 'Pulses'];
+  const categories = ['All', 'Vegetables', 'Fruits', 'Grains', 'Pulses', 'Spices'];
+  const qualities = ['All', 'Grade A+ (Export Quality)', 'Grade A (Premium)', 'Grade B (Standard)', 'Organic Certified'];
 
-  const filteredProducts = products.filter((p) => {
-    const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchQuery = 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.location.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchQuery;
-  });
+  const filteredProducts = products
+    .filter((p) => {
+      const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
+      const matchQual = selectedQuality === 'All' || p.quality === selectedQuality;
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery = 
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.variety && p.variety.toLowerCase().includes(q)) ||
+        p.farmerName.toLowerCase().includes(q) ||
+        p.location.toLowerCase().includes(q);
+      return matchCat && matchQual && matchQuery;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price-asc') return a.pricePerKg - b.pricePerKg;
+      if (sortBy === 'price-desc') return b.pricePerKg - a.pricePerKg;
+      if (sortBy === 'rating-desc') return (b.farmerRating || 4.9) - (a.farmerRating || 4.9);
+      if (sortBy === 'harvest-date') return new Date(b.harvestDate).getTime() - new Date(a.harvestDate).getTime();
+      return 0;
+    });
 
   const handleOpenBuy = (product: Product) => {
     setSelectedProduct(product);
@@ -154,23 +181,105 @@ export const BuyerMarketplace: React.FC = () => {
     return true;
   });
 
+  const filteredMyOrders = myOrders.filter((ord) => {
+    const q = orderSearchQuery.toLowerCase().trim();
+    const matchQ =
+      !q ||
+      ord.id.toLowerCase().includes(q) ||
+      ord.productName.toLowerCase().includes(q) ||
+      ord.farmerName.toLowerCase().includes(q);
+
+    let matchStatus = true;
+    if (orderStatusFilter === 'UNRATED') {
+      matchStatus = !ord.rating;
+    } else if (orderStatusFilter !== 'ALL') {
+      matchStatus = ord.status === orderStatusFilter;
+    }
+
+    return matchQ && matchStatus;
+  });
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-10 font-sans">
       
       {/* 1. ORDERS VIEW FOR BUYER */}
       {activeTab === 'orders' ? (
         <div className="space-y-6">
-          <div className="border-b border-stone-200 pb-4">
-            <h1 className="text-2xl font-semibold text-stone-900 font-serif">Your Orders</h1>
-            <p className="text-xs text-stone-500 mt-0.5">Track dispatches and cold-chain arrivals from regional farms</p>
+          <div className="border-b border-stone-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold text-stone-900 font-serif">Your Orders</h1>
+              <p className="text-xs text-stone-500 mt-0.5">Track dispatches, review freshness, and manage regional cold-chain arrivals</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-lg">
+                {myOrders.length} {isHindi ? 'कुल ऑर्डर' : 'Total Orders'}
+              </span>
+            </div>
+          </div>
+
+          {/* Orders Search & Status Filters */}
+          <div className="space-y-3 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={orderSearchQuery}
+                onChange={(e) => setOrderSearchQuery(e.target.value)}
+                placeholder="Search orders by crop, farmer name, or Order ID..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-stone-900 text-xs focus:outline-none focus:border-emerald-600 transition-colors"
+              />
+              {orderSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setOrderSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {[
+                { id: 'ALL', label: isHindi ? 'सभी' : 'All Orders' },
+                { id: 'Confirmed', label: isHindi ? 'स्वीकृत' : 'Confirmed' },
+                { id: 'In Transit', label: isHindi ? 'मार्ग पर' : 'In Transit' },
+                { id: 'Delivered', label: isHindi ? 'डिलीवर हुए' : 'Delivered' },
+                { id: 'UNRATED', label: isHindi ? 'रेटिंग बाकी' : 'Awaiting Rating ★' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setOrderStatusFilter(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                    orderStatusFilter === tab.id
+                      ? 'bg-stone-900 text-white shadow-xs'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="divide-y divide-stone-200">
-            {myOrders.length > 0 ? (
-              myOrders.map((ord) => (
+            {filteredMyOrders.length > 0 ? (
+              filteredMyOrders.map((ord) => (
                 <div key={ord.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-stone-400 font-mono">{ord.id} · {ord.orderDate}</div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-stone-400 font-mono flex items-center gap-2">
+                      <span>{ord.id}</span>
+                      <span>·</span>
+                      <span>{ord.orderDate}</span>
+                      {ord.rating && (
+                        <span className="text-[10px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                          <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                          <span>{ord.rating}.0 Rated</span>
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-base font-semibold text-stone-900">
                         {ord.quantity} kg {ord.productName}
@@ -183,9 +292,16 @@ export const BuyerMarketplace: React.FC = () => {
                         {ord.buyerTier === 'RETAIL' || ord.quantity <= 2 ? 'Household Retail (Max 2 kg)' : 'Wholesale B2B Batch'}
                       </span>
                     </div>
-                    <div className="text-xs text-stone-500 mt-0.5">
+                    <div className="text-xs text-stone-500">
                       Farmer: <span className="font-medium text-stone-800">{ord.farmerName}</span> · Destination: {ord.deliveryLocation}
                     </div>
+
+                    {/* Show Review snippet if rated */}
+                    {ord.reviewComment && (
+                      <div className="text-xs text-stone-600 italic bg-amber-50/50 border border-amber-100 rounded-lg px-2.5 py-1 mt-1 inline-block">
+                        "{ord.reviewComment}"
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100">
@@ -199,6 +315,35 @@ export const BuyerMarketplace: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Rating Action Button */}
+                      {ord.rating ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRatingOrder(ord);
+                            setIsRatingModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                          title="View or update your rating"
+                        >
+                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          <span>{ord.rating}.0 ★</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRatingOrder(ord);
+                            setIsRatingModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-xs animate-pulse hover:animate-none"
+                          title="Rate produce freshness & cold-chain delivery"
+                        >
+                          <Star className="w-3.5 h-3.5 fill-white" />
+                          <span>{isHindi ? 'रेटिंग दें' : 'Rate Order'}</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -228,8 +373,20 @@ export const BuyerMarketplace: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="py-12 text-center text-xs text-stone-400">
-                No orders placed yet. Select produce from the marketplace to order directly.
+              <div className="py-12 text-center text-xs text-stone-400 space-y-1">
+                <p>No orders found matching your search or status filter.</p>
+                {(orderSearchQuery || orderStatusFilter !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderSearchQuery('');
+                      setOrderStatusFilter('ALL');
+                    }}
+                    className="text-emerald-700 underline font-medium cursor-pointer"
+                  >
+                    Clear order filters
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -361,33 +518,93 @@ export const BuyerMarketplace: React.FC = () => {
             </div>
           )}
 
-          {/* Search & Category Filter */}
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search produce..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-stone-900 text-sm focus:outline-none focus:border-[#0E3B2B] transition-colors"
-              />
+          {/* Enhanced Search, Quality Filter & Sort Controls */}
+          <div className="space-y-3 bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={isHindi ? 'फसल, किस्म, किसान या मंडी खोजें...' : 'Search by crop name, variety, farmer, or region...'}
+                  className="w-full pl-10 pr-8 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-stone-900 text-sm focus:bg-white focus:outline-none focus:border-emerald-600 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Quality Grade Filter */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <select
+                  value={selectedQuality}
+                  onChange={(e) => setSelectedQuality(e.target.value)}
+                  className="px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-700 font-medium focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="All">All Grades</option>
+                  <option value="Grade A+ (Export Quality)">Grade A+ (Export)</option>
+                  <option value="Grade A (Premium)">Grade A (Premium)</option>
+                  <option value="Grade B (Standard)">Grade B (Standard)</option>
+                  <option value="Organic Certified">Organic Certified</option>
+                </select>
+
+                {/* Sort Selector */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-700 font-medium focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="rating-desc">★ Highest Rated Farmer</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="harvest-date">Freshness (Harvest Date)</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
-                    selectedCategory === cat
-                      ? 'bg-[#0E3B2B] text-white'
-                      : 'bg-white border border-stone-200 text-stone-600 hover:border-stone-400'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            {/* Category Pills & Results Count */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-100 flex-wrap">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                      selectedCategory === cat
+                        ? 'bg-[#0E3B2B] text-white shadow-xs'
+                        : 'bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-xs text-stone-500 font-medium flex items-center gap-1">
+                <span>Showing <strong className="text-stone-900">{filteredProducts.length}</strong> of {products.length} crops</span>
+                {(searchQuery || selectedCategory !== 'All' || selectedQuality !== 'All' || sortBy !== 'featured') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('All');
+                      setSelectedQuality('All');
+                      setSortBy('featured');
+                    }}
+                    className="ml-2 text-emerald-700 hover:underline font-semibold cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -438,14 +655,23 @@ export const BuyerMarketplace: React.FC = () => {
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
+                  {p.quality && (
+                    <span className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-semibold text-stone-800 px-2 py-0.5 rounded-md border border-stone-200 shadow-xs">
+                      {p.quality}
+                    </span>
+                  )}
                 </div>
 
                 {/* Content */}
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-1">
                     <h3 className="text-base font-semibold text-stone-900">{p.name.split('(')[0].trim()}</h3>
-                    <div className="text-xs text-stone-500 flex items-center gap-1.5">
+                    <div className="text-xs text-stone-500 flex items-center gap-1.5 flex-wrap">
                       <span>{p.farmerName}</span>
+                      <span className="text-[10px] text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5">
+                        <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                        <span>{(p.farmerRating || 4.9).toFixed(1)}</span>
+                      </span>
                       <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-semibold flex items-center gap-0.5">
                         <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
                         <span>PM-KISAN</span>
@@ -753,6 +979,17 @@ export const BuyerMarketplace: React.FC = () => {
           setGrievanceOrderId('');
         }}
         defaultOrderId={grievanceOrderId}
+      />
+
+      {/* Produce & Delivery Rating & Review Modal */}
+      <RatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => {
+          setIsRatingModalOpen(false);
+          setSelectedRatingOrder(null);
+        }}
+        order={selectedRatingOrder}
+        isHindi={isHindi}
       />
 
     </div>

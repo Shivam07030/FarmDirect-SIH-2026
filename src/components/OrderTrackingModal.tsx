@@ -16,10 +16,12 @@ import {
   Navigation,
   RotateCcw,
   MessageSquare,
-  LifeBuoy
+  LifeBuoy,
+  Star
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { GrievanceModal } from './GrievanceModal';
+import { RatingModal } from './RatingModal';
 
 interface OrderTrackingModalProps {
   order: Order | null;
@@ -41,6 +43,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
 
   if (!isOpen || !order) return null;
 
@@ -540,18 +543,62 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             </div>
           </div>
 
+          {/* Rating Call-to-Action for Delivered Order */}
+          {order.status === 'Delivered' && viewerRole === 'BUYER' && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                  <span>
+                    {order.rating
+                      ? `Rated ${order.rating}.0 / 5 Stars`
+                      : isHindi
+                      ? 'डिलीवरी पूरी हुई! फसल व सेवा को रेट करें'
+                      : 'Order Delivered! Rate Freshness & Cold-Chain'}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900">
+                  {order.reviewComment
+                    ? `"${order.reviewComment}"`
+                    : 'Help fellow buyers and boost verified farmers by rating produce freshness and reefer transit.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRatingOpen(true)}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+              >
+                <Star className="w-3.5 h-3.5 fill-white" />
+                <span>{order.rating ? 'Update Rating' : isHindi ? 'रेटिंग दर्ज करें' : 'Rate Experience'}</span>
+              </button>
+            </div>
+          )}
+
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3 border-t border-stone-200 bg-stone-50 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setIsGrievanceOpen(true)}
-            className="px-3 py-2 bg-white hover:bg-rose-50 text-stone-700 hover:text-rose-700 border border-stone-200 hover:border-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-          >
-            <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
-            <span>{isHindi ? 'शिकायत / विवाद दर्ज करें' : 'Raise Dispute Ticket'}</span>
-          </button>
+        <div className="px-5 py-3 border-t border-stone-200 bg-stone-50 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsGrievanceOpen(true)}
+              className="px-3 py-2 bg-white hover:bg-rose-50 text-stone-700 hover:text-rose-700 border border-stone-200 hover:border-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
+              <span>{isHindi ? 'शिकायत / विवाद' : 'Raise Dispute'}</span>
+            </button>
+
+            {viewerRole === 'BUYER' && (
+              <button
+                type="button"
+                onClick={() => setIsRatingOpen(true)}
+                className="px-3 py-2 bg-white hover:bg-amber-50 text-stone-700 hover:text-amber-800 border border-stone-200 hover:border-amber-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <Star className={`w-3.5 h-3.5 ${order.rating ? 'fill-amber-500 text-amber-500' : 'text-stone-400'}`} />
+                <span>{order.rating ? `★ ${order.rating}.0` : isHindi ? 'रेटिंग दें' : 'Rate Order'}</span>
+              </button>
+            )}
+          </div>
 
           <button
             type="button"
@@ -575,6 +622,14 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             ? `Cold-Chain Temperature Warning (+${temperature}°C recorded on ${vehicleNo})`
             : `Order #${order.id} Quality & Delivery Issue`
         }
+      />
+
+      {/* Embedded Rating Modal */}
+      <RatingModal
+        isOpen={isRatingOpen}
+        onClose={() => setIsRatingOpen(false)}
+        order={order}
+        isHindi={isHindi}
       />
     </div>
   );

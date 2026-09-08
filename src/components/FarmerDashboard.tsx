@@ -17,7 +17,9 @@ import {
   Check,
   Loader2,
   Truck,
-  LifeBuoy
+  LifeBuoy,
+  Star,
+  Search
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
@@ -85,6 +87,27 @@ export const FarmerDashboard: React.FC = () => {
   const myOrders = orders.filter(
     (o) => o.farmerName.toLowerCase().includes(farmerFirstName) || o.farmerName.toLowerCase().includes('rajesh') || o.farmerName.toLowerCase().includes('you')
   );
+
+  const [farmerOrderQuery, setFarmerOrderQuery] = useState('');
+  const [farmerOrderStatus, setFarmerOrderStatus] = useState<'ALL' | 'Confirmed' | 'In Transit' | 'Delivered' | 'RATED'>('ALL');
+  const [farmerProduceQuery, setFarmerProduceQuery] = useState('');
+
+  const filteredFarmerOrders = myOrders.filter((o) => {
+    const q = farmerOrderQuery.toLowerCase().trim();
+    const matchQ = !q || o.id.toLowerCase().includes(q) || o.productName.toLowerCase().includes(q) || o.buyerName.toLowerCase().includes(q);
+    let matchStatus = true;
+    if (farmerOrderStatus === 'RATED') {
+      matchStatus = Boolean(o.rating);
+    } else if (farmerOrderStatus !== 'ALL') {
+      matchStatus = o.status === farmerOrderStatus;
+    }
+    return matchQ && matchStatus;
+  });
+
+  const filteredMyProduce = myProduce.filter((p) => {
+    const q = farmerProduceQuery.toLowerCase().trim();
+    return !q || p.name.toLowerCase().includes(q) || (p.variety && p.variety.toLowerCase().includes(q)) || p.category.toLowerCase().includes(q);
+  });
 
   const handleSaveFarmerKyc = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -514,79 +537,184 @@ export const FarmerDashboard: React.FC = () => {
 
       {activeTab === 'orders' && (
         <div className="space-y-6">
-          <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
-            <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
-              {isHindi ? 'आने वाले और सक्रिय ऑर्डर' : 'Incoming & Active Orders'}
-            </h1>
-            <p className="text-xs text-stone-500 mt-0.5">
-              {isHindi ? 'सीधे बैंक खाते में सुरक्षित भुगतान' : 'Dispatches and buyer settlements directly to your bank account'}
-            </p>
+          <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
+                {isHindi ? 'आने वाले और सक्रिय ऑर्डर' : 'Incoming & Active Orders'}
+              </h1>
+              <p className="text-xs text-stone-500 mt-0.5">
+                {isHindi ? 'सीधे बैंक खाते में सुरक्षित भुगतान और खरीदार समीक्षाएं' : 'Dispatches, buyer reviews, and direct escrow settlements'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                <span>4.9 Farmer Rating</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Search & Filter bar for Farmer Orders */}
+          <div className="space-y-3 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={farmerOrderQuery}
+                onChange={(e) => setFarmerOrderQuery(e.target.value)}
+                placeholder="Search orders by crop, buyer name, or Order ID..."
+                className="w-full pl-9 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-stone-900 text-xs focus:outline-none focus:border-emerald-600 transition-colors"
+              />
+              {farmerOrderQuery && (
+                <button
+                  type="button"
+                  onClick={() => setFarmerOrderQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {[
+                { id: 'ALL', label: isHindi ? 'सभी' : 'All Orders' },
+                { id: 'Confirmed', label: isHindi ? 'स्वीकृत' : 'Confirmed' },
+                { id: 'In Transit', label: isHindi ? 'मार्ग पर' : 'In Transit' },
+                { id: 'Delivered', label: isHindi ? 'डिलीवर हुए' : 'Delivered' },
+                { id: 'RATED', label: isHindi ? 'समीक्षाएं व रेटिंग' : 'Buyer Reviews ★' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFarmerOrderStatus(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer shrink-0 ${
+                    farmerOrderStatus === tab.id
+                      ? 'bg-stone-900 text-white shadow-xs'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-stone-200 shadow-xs divide-y divide-stone-100 overflow-hidden">
-            {myOrders.length > 0 ? (
-              myOrders.map((o) => (
-                <div key={o.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-stone-400 font-mono">{o.id} · {o.orderDate}</div>
-                    <div className="text-sm sm:text-base font-semibold text-stone-900 mt-0.5">
-                      {o.quantity} kg {o.productName}
-                    </div>
-                    <div className="text-xs text-stone-500 mt-0.5">
-                      {isHindi ? 'खरीदार:' : 'Buyer:'} <span className="text-stone-800 font-medium">{o.buyerName}</span> · {o.deliveryLocation}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-50">
-                    <div className="text-left sm:text-right mr-1">
-                      <div className="text-base font-mono font-bold text-stone-900">
-                        ₹{o.totalPrice.toLocaleString('en-IN')}
+            {filteredFarmerOrders.length > 0 ? (
+              filteredFarmerOrders.map((o) => (
+                <div key={o.id} className="p-4 flex flex-col justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs text-stone-400 font-mono flex items-center gap-2">
+                        <span>{o.id}</span>
+                        <span>·</span>
+                        <span>{o.orderDate}</span>
+                        {o.rating && (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                            <span>{o.rating}.0 Rated</span>
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-emerald-700 font-semibold mt-0.5">
-                        {o.status}
+                      <div className="text-sm sm:text-base font-semibold text-stone-900 mt-0.5">
+                        {o.quantity} kg {o.productName}
+                      </div>
+                      <div className="text-xs text-stone-500 mt-0.5">
+                        {isHindi ? 'खरीदार:' : 'Buyer:'} <span className="text-stone-800 font-medium">{o.buyerName}</span> · {o.deliveryLocation}
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTrackingOrder(o);
-                        setIsTrackModalOpen(true);
-                      }}
-                      className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                    >
-                      <Truck className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{isHindi ? 'ट्रैक करें' : 'Track'}</span>
-                    </button>
+                    <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-50">
+                      <div className="text-left sm:text-right mr-1">
+                        <div className="text-base font-mono font-bold text-stone-900">
+                          ₹{o.totalPrice.toLocaleString('en-IN')}
+                        </div>
+                        <div className="text-xs text-emerald-700 font-semibold mt-0.5">
+                          {o.status}
+                        </div>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGrievanceOrderId(o.id);
-                        setIsGrievanceModalOpen(true);
-                      }}
-                      className="px-2.5 py-2 bg-stone-50 hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 text-xs font-medium rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-                      title={isHindi ? 'विवाद / समस्या दर्ज करें' : 'Report Issue / Grievance'}
-                    >
-                      <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
-                      <span>{isHindi ? 'शिकायत' : 'Dispute'}</span>
-                    </button>
-
-                    {o.status === 'Confirmed' && (
                       <button
                         type="button"
-                        onClick={() => updateOrderStatus(o.id, 'In Transit')}
-                        className="px-3.5 py-2 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
+                        onClick={() => {
+                          setSelectedTrackingOrder(o);
+                          setIsTrackModalOpen(true);
+                        }}
+                        className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                       >
-                        {isHindi ? 'डिस्पैच करें' : 'Dispatch'}
+                        <Truck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isHindi ? 'ट्रैक करें' : 'Track'}</span>
                       </button>
-                    )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGrievanceOrderId(o.id);
+                          setIsGrievanceModalOpen(true);
+                        }}
+                        className="px-2.5 py-2 bg-stone-50 hover:bg-rose-50 text-stone-600 hover:text-rose-700 border border-stone-200 hover:border-rose-200 text-xs font-medium rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                        title={isHindi ? 'विवाद / समस्या दर्ज करें' : 'Report Issue / Grievance'}
+                      >
+                        <LifeBuoy className="w-3.5 h-3.5 text-rose-500" />
+                        <span>{isHindi ? 'शिकायत' : 'Dispute'}</span>
+                      </button>
+
+                      {o.status === 'Confirmed' && (
+                        <button
+                          type="button"
+                          onClick={() => updateOrderStatus(o.id, 'In Transit')}
+                          className="px-3.5 py-2 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
+                        >
+                          {isHindi ? 'डिस्पैच करें' : 'Dispatch'}
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Buyer Review & Rating Feedback Box */}
+                  {o.rating && (
+                    <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1 mt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          <span>Buyer Rating: {o.rating}.0 / 5</span>
+                        </span>
+                        {o.produceRating && (
+                          <span className="text-[10px] text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200 font-medium">
+                            Freshness: {o.produceRating}.0 ★
+                          </span>
+                        )}
+                        {o.logisticsRating && (
+                          <span className="text-[10px] text-blue-800 bg-white px-2 py-0.5 rounded border border-blue-200 font-medium">
+                            Logistics: {o.logisticsRating}.0 ★
+                          </span>
+                        )}
+                      </div>
+                      {o.reviewComment && (
+                        <p className="text-xs text-stone-700 italic pt-0.5">
+                          "{o.reviewComment}"
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-xs text-stone-400">
-                {isHindi ? 'कोई नया ऑर्डर नहीं है।' : 'No orders pending.'}
+              <div className="p-8 text-center text-xs text-stone-400 space-y-1">
+                <p>{isHindi ? 'कोई ऑर्डर नहीं मिला।' : 'No orders found matching your search or status filter.'}</p>
+                {(farmerOrderQuery || farmerOrderStatus !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFarmerOrderQuery('');
+                      setFarmerOrderStatus('ALL');
+                    }}
+                    className="text-emerald-700 underline font-medium cursor-pointer"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             )}
           </div>

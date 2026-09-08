@@ -127,6 +127,31 @@ export async function updateOrderStatusApi(orderId: string, status: OrderStatus)
     }
 }
 
+export async function rateOrderApi(
+    orderId: string,
+    ratingData: {
+        rating: number;
+        produceRating?: number;
+        logisticsRating?: number;
+        reviewComment?: string;
+    }
+): Promise<{ success: boolean; error?: string; data?: any }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/orders/${orderId}/rate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ratingData),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            return { success: false, error: data.error || 'Failed to submit rating' };
+        }
+        return { success: true, data };
+    } catch (err: any) {
+        return { success: false, error: err.message || 'Network error submitting rating' };
+    }
+}
+
 export async function fetchStats(): Promise<any> {
     try {
         const res = await fetch(`${API_BASE}/api/stats`);

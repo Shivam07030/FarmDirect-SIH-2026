@@ -85,6 +85,26 @@ async function initMarketRulesTable() {
 }
 initMarketRulesTable();
 
+async function initOrderRatingsTable() {
+  try {
+    const [cols] = await pool.query(`SHOW COLUMNS FROM orders LIKE 'rating'`);
+    if (!cols || cols.length === 0) {
+      await pool.query(`
+        ALTER TABLE orders 
+          ADD COLUMN rating INT NULL,
+          ADD COLUMN review_comment TEXT NULL,
+          ADD COLUMN produce_rating INT NULL,
+          ADD COLUMN logistics_rating INT NULL,
+          ADD COLUMN rated_at TIMESTAMP NULL
+      `);
+      console.log('Order ratings columns initialized in MySQL.');
+    }
+  } catch (e) {
+    console.warn('initOrderRatingsTable note:', e.message);
+  }
+}
+initOrderRatingsTable();
+
 app.get('/api/admin/market-rules', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
@@ -583,7 +603,12 @@ app.get('/api/orders', async (req, res) => {
          s.vehicle_number AS vehicleNumber,
          s.driver_name AS driverName,
          s.driver_phone AS driverPhone,
-         s.temperature_celsius AS temperatureCelsius
+         s.temperature_celsius AS temperatureCelsius,
+         o.rating,
+         o.review_comment AS reviewComment,
+         o.produce_rating AS produceRating,
+         o.logistics_rating AS logisticsRating,
+         DATE_FORMAT(o.rated_at, '%Y-%m-%d %H:%i') AS ratedAt
        FROM orders o
        JOIN users bu ON o.buyer_id = bu.id
        JOIN order_items oi ON o.id = oi.order_id
@@ -604,6 +629,11 @@ app.get('/api/orders', async (req, res) => {
         totalPrice: Number(o.totalPrice),
         logisticsFee: Number(o.logisticsFee),
         finalAmount: Number(o.finalAmount),
+        rating: o.rating != null ? Number(o.rating) : undefined,
+        reviewComment: o.reviewComment || undefined,
+        produceRating: o.produceRating != null ? Number(o.produceRating) : undefined,
+        logisticsRating: o.logisticsRating != null ? Number(o.logisticsRating) : undefined,
+        ratedAt: o.ratedAt || undefined,
       };
     });
 
@@ -744,6 +774,77 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   } catch (err) {
     console.error('update order status error:', err);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+app.post('/api/orders/:id/rate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, produceRating, logisticsRating, reviewComment } = req.body;
+
+    const numRating = Number(rating);
+    if (!numRating || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: 'Valid rating between 1 and 5 is required' });
+    }
+
+    const [orderRows] = await pool.query(
+      `SELECT o.id, oi.product_id, p.farmer_id 
+       FROM orders o
+       JOIN order_items oi ON o.id = oi.order_id
+       JOIN products p ON oi.product_id = p.id
+       WHERE o.id = ? LIMIT 1`,
+      [id]
+    );
+
+    if (!orderRows || orderRows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const farmerId = orderRows[0].farmer_id;
+    const prodRating = produceRating ? Number(produceRating) : numRating;
+    const logRating = logisticsRating ? Number(logisticsRating) : numRating;
+    const comment = reviewComment ? String(reviewComment).trim() : null;
+
+    // Update order with ratings
+    await pool.query(
+      `UPDATE orders SET 
+         rating = ?, 
+         review_comment = ?, 
+         produce_rating = ?, 
+         logistics_rating = ?, 
+         rated_at = NOW() 
+       WHERE id = ?`,
+      [numRating, comment, prodRating, logRating, id]
+    );
+
+    // Recalculate farmer average rating in farmer_profiles
+    if (farmerId) {
+      const [avgRows] = await pool.query(
+        `SELECT AVG(o.rating) as avg_rating 
+         FROM orders o
+         JOIN order_items oi ON o.id = oi.order_id
+         JOIN products p ON oi.product_id = p.id
+         WHERE p.farmer_id = ? AND o.rating IS NOT NULL`,
+        [farmerId]
+      );
+      if (avgRows && avgRows[0] && avgRows[0].avg_rating != null) {
+        const newAvg = Math.round(Number(avgRows[0].avg_rating) * 10) / 10;
+        await pool.query('UPDATE farmer_profiles SET rating = ? WHERE user_id = ?', [newAvg, farmerId]);
+      }
+    }
+
+    res.json({
+      success: true,
+      orderId: id,
+      rating: numRating,
+      reviewComment: comment || '',
+      produceRating: prodRating,
+      logisticsRating: logRating,
+      ratedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('rate order error:', err);
+    res.status(500).json({ error: 'Failed to submit rating' });
   }
 });
 
