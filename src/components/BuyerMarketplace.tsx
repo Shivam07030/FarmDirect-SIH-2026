@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product, Order } from '../types';
-import { Search, X, Check, ArrowRight } from 'lucide-react';
+import { Search, X, Check, ArrowRight, Building2, BadgeCheck, ShieldCheck } from 'lucide-react';
 
 export const BuyerMarketplace: React.FC = () => {
-  const { products, placeOrder, buyerName, orders, activeTab, setActiveTab } = useApp();
+  const { products, placeOrder, buyerName, currentUser, orders, activeTab, setActiveTab } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -112,8 +112,36 @@ export const BuyerMarketplace: React.FC = () => {
         </div>
       ) : (
         /* 2. MARKETPLACE VIEW FOR BUYER */
-        <div className="space-y-8">
+        <div className="space-y-6">
           
+          {/* Commercial Buyer Compliance Header */}
+          <div className="p-4 bg-white border border-stone-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-800 border border-blue-200 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5 text-blue-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-stone-900">
+                    {currentUser?.buyerKyc?.legalBusinessName || buyerName}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1">
+                    <BadgeCheck className="w-3 h-3 text-blue-700" />
+                    <span>GST Verified</span>
+                  </span>
+                </div>
+                <div className="text-xs text-stone-500 mt-0.5">
+                  GSTIN: <span className="font-mono font-medium text-stone-800">{currentUser?.buyerKyc?.gstin || '07AAAAF1234A1Z5'}</span> · FSSAI: <span className="font-mono">{currentUser?.buyerKyc?.fssaiLicense || '10019011004123'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-emerald-800 font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 self-start sm:self-auto flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+              <span>Fair Price Collar Protected · Direct Farmgate Settlement</span>
+            </div>
+          </div>
+
           {/* Search & Category Filter */}
           <div className="space-y-4">
             <div className="relative">
@@ -180,8 +208,13 @@ export const BuyerMarketplace: React.FC = () => {
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-1">
                     <h3 className="text-base font-semibold text-stone-900">{p.name.split('(')[0].trim()}</h3>
-                    <div className="text-xs text-stone-500">
-                      {p.farmerName} · {p.location}
+                    <div className="text-xs text-stone-500 flex items-center gap-1.5">
+                      <span>{p.farmerName}</span>
+                      <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-semibold flex items-center gap-0.5">
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>PM-KISAN</span>
+                      </span>
+                      <span>· {p.location}</span>
                     </div>
                   </div>
 

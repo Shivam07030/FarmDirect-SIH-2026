@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCategory } from '../types';
-import { Plus, X, Phone, MapPin, Navigation, TrendingUp, Camera as CameraIcon } from 'lucide-react';
+import { 
+  Plus, 
+  X, 
+  Phone, 
+  MapPin, 
+  Navigation, 
+  TrendingUp, 
+  Camera as CameraIcon, 
+  ShieldCheck, 
+  AlertCircle, 
+  CheckCircle2, 
+  SlidersHorizontal 
+} from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
 import { fetchMarketRates } from '../services/api';
@@ -13,6 +25,7 @@ export const FarmerDashboard: React.FC = () => {
     addProduct, 
     updateOrderStatus,
     farmerName,
+    currentUser,
     activeTab,
     farmerStats,
     language
@@ -78,8 +91,40 @@ export const FarmerDashboard: React.FC = () => {
     }
   };
 
+  const activeRate = marketRates.find((r) => 
+    cropName.toLowerCase().includes(r.crop_name?.toLowerCase() || '') || 
+    (r.crop_name && r.crop_name.toLowerCase().includes(cropName.toLowerCase()))
+  );
+  const floorPrice = activeRate?.priceFloor 
+    ? Number(activeRate.priceFloor) 
+    : (cropName.toLowerCase().includes('potato') ? 12 : cropName.toLowerCase().includes('onion') ? 18 : cropName.toLowerCase().includes('wheat') ? 24 : cropName.toLowerCase().includes('mustard') ? 42 : 16);
+  const ceilingPrice = activeRate?.priceCeiling 
+    ? Number(activeRate.priceCeiling) 
+    : (cropName.toLowerCase().includes('potato') ? 22 : cropName.toLowerCase().includes('onion') ? 35 : cropName.toLowerCase().includes('wheat') ? 38 : cropName.toLowerCase().includes('mustard') ? 60 : 32);
+  const recommendedPrice = activeRate?.farmdirect_farmer_price 
+    ? Number(activeRate.farmdirect_farmer_price) 
+    : (cropName.toLowerCase().includes('potato') ? 18 : cropName.toLowerCase().includes('onion') ? 27 : cropName.toLowerCase().includes('wheat') ? 31 : cropName.toLowerCase().includes('mustard') ? 52 : 24);
+
+  const isBelowFloor = pricePerKg < floorPrice;
+  const isAboveCeil = pricePerKg > ceilingPrice;
+  const isCollarCompliant = !isBelowFloor && !isAboveCeil;
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isBelowFloor) {
+      alert(isHindi 
+        ? `मूल्य न्यूनतम मूल्य सीमा (₹${floorPrice}/kg) से कम है। संकट बिक्री प्रतिबंधित है।` 
+        : `Price is below Fair Floor Price (₹${floorPrice}/kg). Distressed selling is restricted to protect farmer livelihoods.`);
+      return;
+    }
+    if (isAboveCeil) {
+      alert(isHindi 
+        ? `मूल्य अधिकतम सीमा (₹${ceilingPrice}/kg) से अधिक है। मूल्य वृद्धि प्रतिबंधित है।` 
+        : `Price exceeds Fair Price Ceiling (₹${ceilingPrice}/kg). Speculative price gouging is restricted.`);
+      return;
+    }
+
     addProduct({
       name: cropName,
       category,
@@ -120,13 +165,20 @@ export const FarmerDashboard: React.FC = () => {
           <section className="space-y-3 bg-white p-4 sm:p-5 rounded-2xl border border-stone-200/90 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
-                  {isHindi ? 'सत्यापित किसान' : 'Verified Producer'}
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight mt-1">
-                  {isHindi ? 'सुप्रभात, राजेश' : 'Good morning, Rajesh'}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
+                  </span>
+                  <span className="text-[11px] text-stone-500 font-mono bg-stone-100 px-2 py-0.5 rounded">
+                    ID: {currentUser?.farmerKyc?.pmKisanId || 'UP-2024-889123'} · {currentUser?.farmerKyc?.landSizeAcres || 3.5} Acres
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight mt-1.5">
+                  {isHindi ? `सुप्रभात, ${farmerName.split(' ')[0]}` : `Good morning, ${farmerName.split(' ')[0]}`}
                 </h1>
                 <p className="text-xs text-stone-500 mt-0.5">
+                  {currentUser?.farmerKyc?.khasraNo ? `Khasra #${currentUser.farmerKyc.khasraNo} · ` : ''}
                   {isHindi ? 'आगरा फार्म क्लस्टर · उत्तर प्रदेश' : 'Agra Farm Cluster · Uttar Pradesh'}
                 </p>
               </div>
@@ -595,6 +647,69 @@ export const FarmerDashboard: React.FC = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Dynamic Algorithmic Fair Price Collar Visualizer */}
+              <div className="p-3.5 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 text-stone-800">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>{isHindi ? 'फेयर प्राइस कॉलर बैंड (Fair Price Collar)' : 'Fair Price Collar Engine'}</span>
+                  </span>
+                  <span className="font-mono text-stone-500 text-[11px]">
+                    {isHindi ? 'अनुशंसित दर:' : 'Recommended:'} ₹{recommendedPrice}/kg
+                  </span>
+                </div>
+
+                {/* Collar distribution bar */}
+                <div className="space-y-1">
+                  <div className="relative h-2.5 bg-stone-200 rounded-full overflow-hidden flex">
+                    <div className="w-1/4 bg-amber-300 h-full border-r border-white/60" title="Distress Floor" />
+                    <div className="w-2/4 bg-emerald-500 h-full" title="Fair Price Optimal Band" />
+                    <div className="w-1/4 bg-rose-300 h-full border-l border-white/60" title="Speculative Ceiling" />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-stone-500 font-mono">
+                    <span>Floor: ₹{floorPrice}/kg (MSP)</span>
+                    <span className="text-emerald-800 font-bold">Fair Band</span>
+                    <span>Ceiling: ₹{ceilingPrice}/kg (Cap)</span>
+                  </div>
+                </div>
+
+                {/* Real-time status feedback */}
+                {isBelowFloor && (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Below Fair Price Floor (₹{floorPrice}/kg):</span>{' '}
+                      {isHindi 
+                        ? 'संकट में कम कीमत पर बिक्री प्रतिबंधित है। सरकार द्वारा तय लागत व एमएसपी के आधार पर उचित मूल्य प्राप्त करें।' 
+                        : 'Distressed selling below production cost & MSP is restricted. Set price ≥ ₹' + floorPrice + '/kg.'}
+                    </div>
+                  </div>
+                )}
+
+                {isAboveCeil && (
+                  <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Exceeds Fair Price Ceiling (₹{ceilingPrice}/kg):</span>{' '}
+                      {isHindi 
+                        ? 'मंडी अधिकतम मूल्य सीमा से अधिक है। खुदरा खरीदार सुरक्षा के लिए कीमत ₹' + ceilingPrice + '/kg से कम रखें।' 
+                        : 'Speculative price gouging collar active. Mandi retail benchmark cap is ₹' + ceilingPrice + '/kg.'}
+                    </div>
+                  </div>
+                )}
+
+                {isCollarCompliant && (
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>
+                      {isHindi 
+                        ? `उचित मूल्य सीमा में: ₹${pricePerKg}/kg (न्यूनतम ₹${floorPrice} - अधिकतम ₹${ceilingPrice})` 
+                        : `Fair Price Compliant: ₹${pricePerKg}/kg is within protected floor (₹${floorPrice}) & ceiling (₹${ceilingPrice})`}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2">

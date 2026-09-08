@@ -19,12 +19,19 @@ CREATE TABLE users (
   name VARCHAR(100) NOT NULL,
   role ENUM('FARMER', 'BUYER', 'ADMIN') NOT NULL,
   location VARCHAR(150) NOT NULL,
+  verification_status ENUM('PENDING', 'VERIFIED', 'REJECTED') DEFAULT 'VERIFIED',
+  gstin VARCHAR(15) NULL,
+  business_legal_name VARCHAR(255) NULL,
+  fssai_license VARCHAR(14) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE farmer_profiles (
   user_id VARCHAR(36) PRIMARY KEY,
   cluster_name VARCHAR(100) NOT NULL,
+  pm_kisan_id VARCHAR(30) NULL,
+  khasra_khatauni_no VARCHAR(50) NULL,
+  land_size_acres DECIMAL(5, 2) DEFAULT 2.5,
   latitude DECIMAL(10, 6) DEFAULT 27.1767,
   longitude DECIMAL(10, 6) DEFAULT 78.0081,
   rating DECIMAL(2, 1) DEFAULT 4.9,
@@ -101,6 +108,8 @@ CREATE TABLE market_rates (
   mandi_consumer_price DECIMAL(10, 2) NOT NULL,
   farmdirect_farmer_price DECIMAL(10, 2) NOT NULL,
   farmdirect_consumer_price DECIMAL(10, 2) NOT NULL,
+  price_floor DECIMAL(10, 2) NOT NULL,
+  price_ceiling DECIMAL(10, 2) NOT NULL,
   demand_growth VARCHAR(20) NOT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id)
 );
@@ -120,22 +129,22 @@ INSERT INTO categories (id, name, description) VALUES
 (5, 'Spices', 'Farm-dried spices and seeds');
 
 -- Seed Users
-INSERT INTO users (id, phone, name, role, location) VALUES
-('USER-001', '+919876543210', 'Rajesh Kumar', 'FARMER', 'Agra, UP'),
-('USER-002', '+919811200000', 'FreshBasket Supermarket', 'BUYER', 'Delhi NCR'),
-('USER-003', '+919999900000', 'FarmDirect Admin Ops', 'ADMIN', 'Regional HQ'),
-('USER-004', '+919412355678', 'Balram Singh', 'FARMER', 'Mathura, UP'),
-('USER-005', '+919823411223', 'Hardeep Yadav', 'FARMER', 'Aligarh, UP'),
-('USER-006', '+919154388990', 'Suresh Verma', 'FARMER', 'Lucknow, UP'),
-('USER-007', '+919811299881', 'AgroPure Processing Ltd', 'BUYER', 'Greater Noida'),
-('USER-008', '+919811277662', 'Delhi Culinary Cooperative', 'BUYER', 'Okhla, Delhi');
+INSERT INTO users (id, phone, name, role, location, verification_status, gstin, business_legal_name, fssai_license) VALUES
+('USER-001', '+919876543210', 'Rajesh Kumar', 'FARMER', 'Agra, UP', 'VERIFIED', NULL, NULL, NULL),
+('USER-002', '+919811200000', 'FreshBasket Supermarket', 'BUYER', 'Delhi NCR', 'VERIFIED', '07AAAAF1234A1Z5', 'FreshBasket Retail Enterprises Pvt Ltd', '10019011004123'),
+('USER-003', '+919999900000', 'FarmDirect Admin Ops', 'ADMIN', 'Regional HQ', 'VERIFIED', NULL, NULL, NULL),
+('USER-004', '+919412355678', 'Balram Singh', 'FARMER', 'Mathura, UP', 'VERIFIED', NULL, NULL, NULL),
+('USER-005', '+919823411223', 'Hardeep Yadav', 'FARMER', 'Aligarh, UP', 'VERIFIED', NULL, NULL, NULL),
+('USER-006', '+919154388990', 'Suresh Verma', 'FARMER', 'Lucknow, UP', 'VERIFIED', NULL, NULL, NULL),
+('USER-007', '+919811299881', 'AgroPure Processing Ltd', 'BUYER', 'Greater Noida', 'VERIFIED', '09AABCA5567B1Z2', 'AgroPure Food Processing Ltd', '10020051007890'),
+('USER-008', '+919811277662', 'Delhi Culinary Cooperative', 'BUYER', 'Okhla, Delhi', 'VERIFIED', '07AACCD9988K1Z9', 'Delhi Culinary Wholesale Cooperative', '10021021008812');
 
 -- Seed Farmer Profiles
-INSERT INTO farmer_profiles (user_id, cluster_name, latitude, longitude, rating, verified) VALUES
-('USER-001', 'Agra Farm Cluster', 27.1767, 78.0081, 4.9, TRUE),
-('USER-004', 'Mathura Farm Belt', 27.4924, 77.6737, 4.8, TRUE),
-('USER-005', 'Aligarh Cluster', 27.8974, 78.0880, 4.7, TRUE),
-('USER-006', 'Lucknow Plains', 26.8467, 80.9462, 5.0, TRUE);
+INSERT INTO farmer_profiles (user_id, cluster_name, pm_kisan_id, khasra_khatauni_no, land_size_acres, latitude, longitude, rating, verified) VALUES
+('USER-001', 'Agra Farm Cluster', 'UP-2024-889123', '142/2A, Agra Revenue Block', 3.50, 27.1767, 78.0081, 4.9, TRUE),
+('USER-004', 'Mathura Farm Belt', 'UP-2023-551980', '88/1, Mathura Rural Plot', 5.00, 27.4924, 77.6737, 4.8, TRUE),
+('USER-005', 'Aligarh Cluster', 'UP-2024-114299', '204/C, Aligarh West Sector', 4.20, 27.8974, 78.0880, 4.7, TRUE),
+('USER-006', 'Lucknow Plains', 'UP-2022-772183', '19/B, Lucknow Central Basin', 6.00, 26.8467, 80.9462, 5.0, TRUE);
 
 -- Seed Products
 INSERT INTO products (id, farmer_id, category_id, name, variety, quantity, initial_quantity, price_per_kg, quality, harvest_date, image_url, status) VALUES
@@ -160,9 +169,9 @@ INSERT INTO shipments (id, order_id, driver_name, driver_phone, vehicle_number, 
 ('SHIP-01', 'ORD-8812', 'Manpreet Singh', '+91 98112 34567', 'DL-1L-4482', 4.0, 'Today · 11:30 AM', 'Today · 4:30 PM', 'In Transit'),
 ('SHIP-02', 'ORD-8813', 'Gurvinder Singh', '+91 98112 88776', 'HR-38-9901', 4.5, 'Today · 1:15 PM', 'Tomorrow · 10:00 AM', 'In Transit');
 
--- Seed Market Rates
-INSERT INTO market_rates (id, crop_name, category_id, mandi_farmer_price, mandi_consumer_price, farmdirect_farmer_price, farmdirect_consumer_price, demand_growth) VALUES
-(1, 'Tomato', 1, 18.00, 32.00, 24.00, 27.00, '+18%'),
-(2, 'Potato', 1, 14.00, 22.00, 18.00, 19.00, '+12%'),
-(3, 'Onion', 1, 22.00, 35.00, 27.00, 31.00, '+15%'),
-(4, 'Wheat (Sharbati)', 3, 26.00, 40.00, 31.00, 36.00, '+8%');
+-- Seed Market Rates with Price Collars
+INSERT INTO market_rates (id, crop_name, category_id, mandi_farmer_price, mandi_consumer_price, farmdirect_farmer_price, farmdirect_consumer_price, price_floor, price_ceiling, demand_growth) VALUES
+(1, 'Tomato', 1, 18.00, 32.00, 24.00, 27.00, 16.00, 32.00, '+18%'),
+(2, 'Potato', 1, 14.00, 22.00, 18.00, 19.00, 12.00, 22.00, '+12%'),
+(3, 'Onion', 1, 22.00, 35.00, 27.00, 31.00, 18.00, 35.00, '+15%'),
+(4, 'Wheat (Sharbati)', 3, 26.00, 40.00, 31.00, 36.00, 24.00, 38.00, '+8%');

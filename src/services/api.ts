@@ -19,13 +19,21 @@ export async function verifyOtp(
     phone: string,
     otp: string,
     role?: string,
-    name?: string
+    name?: string,
+    kycData?: {
+        pmKisanId?: string;
+        khasraNo?: string;
+        landSizeAcres?: number;
+        gstin?: string;
+        businessLegalName?: string;
+        fssaiLicense?: string;
+    }
 ): Promise<{ success: boolean; token?: string; user?: any; error?: string }> {
     try {
         const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, otp, role, name }),
+            body: JSON.stringify({ phone, otp, role, name, ...kycData }),
         });
         return await res.json();
     } catch {
@@ -39,6 +47,12 @@ export async function verifyOtp(
                     name: name || (role === 'FARMER' ? 'Rajesh Kumar' : role === 'BUYER' ? 'FreshBasket' : 'Admin'),
                     role: role || 'FARMER',
                     location: 'Agra Farm Cluster',
+                    verificationStatus: 'VERIFIED',
+                    gstin: kycData?.gstin,
+                    businessLegalName: kycData?.businessLegalName,
+                    pmKisanId: kycData?.pmKisanId || (role === 'FARMER' ? 'UP-2024-889123' : undefined),
+                    khasraNo: kycData?.khasraNo || (role === 'FARMER' ? '142/2A, Agra Revenue Block' : undefined),
+                    landSizeAcres: kycData?.landSizeAcres || (role === 'FARMER' ? 3.5 : undefined),
                 },
             };
         }
@@ -145,3 +159,95 @@ export async function fetchUsers(): Promise<any[]> {
         return [];
     }
 }
+
+export async function verifyGstApi(gstin: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/verify-gst`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gstin }),
+        });
+        return await res.json();
+    } catch {
+        const cleanGst = gstin.trim().toUpperCase();
+        if (cleanGst.length === 15) {
+            return {
+                success: true,
+                data: {
+                    gstin: cleanGst,
+                    legalBusinessName: 'Verified Agro Enterprise Pvt Ltd',
+                    state: 'Delhi (07)',
+                    pan: cleanGst.slice(2, 12),
+                    status: 'Active',
+                    taxpayerType: 'Regular Commercial Wholesaler'
+                }
+            };
+        }
+        return { success: false, error: 'Invalid GSTIN format. Must be 15 alphanumeric characters.' };
+    }
+}
+
+export async function verifyFarmerLandApi(pmKisanId: string, khasraNo: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/verify-farmer-land`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pmKisanId, khasraNo }),
+        });
+        return await res.json();
+    } catch {
+        return {
+            success: true,
+            data: {
+                pmKisanId,
+                khasraNo,
+                landHolder: 'Rajesh Kumar',
+                landSizeAcres: 3.5,
+                villageCluster: 'Agra Rural Revenue District',
+                status: 'VERIFIED_ACTIVE',
+                directBenefitTransferStatus: 'Active - Aadhaar Linked'
+            }
+        };
+    }
+}
+
+export async function fetchPriceCollarApi(cropName: string): Promise<{ cropName: string; floorPrice: number; ceilingPrice: number; msp: number; recommendedPrice: number; reason: string }> {
+    try {
+        const res = await fetch(`${API_BASE}/api/market/collar/${encodeURIComponent(cropName)}`);
+        if (!res.ok) throw new Error('Failed to fetch price collar');
+        return await res.json();
+    } catch {
+        return {
+            cropName,
+            floorPrice: 16,
+            ceilingPrice: 35,
+            msp: 14,
+            recommendedPrice: 24,
+            reason: 'Fair Price Collar Active: Floor = MSP/Cost x 1.5, Ceiling = Mandi Retail cap'
+        };
+    }
+}
+
+export async function fetchKycQueueApi(): Promise<any[]> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/kyc-queue`);
+        if (!res.ok) throw new Error('Failed to fetch KYC queue');
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
+export async function updateKycStatusApi(userId: string, status: 'VERIFIED' | 'REJECTED' | 'PENDING'): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/kyc/${userId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+

@@ -110,3 +110,44 @@ export interface LogisticsComparison {
     distanceSavedPercent: number;
   };
 }
+
+export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+
+export interface FarmerKycData {
+  pmKisanId: string;
+  khasraNo: string;
+  landSizeAcres: number;
+  clusterLocation: string;
+  lat?: number;
+  lng?: number;
+  verifiedAt?: string;
+}
+
+export interface BuyerKycData {
+  gstin: string;
+  legalBusinessName: string;
+  pan: string;
+  state: string;
+  fssaiLicense?: string;
+  tradeType: 'RETAILER' | 'WHOLESALER' | 'PROCESSOR' | 'EXPORTER';
+}
+
+export interface PriceCollar {
+  cropName: string;
+  floorPrice: number;
+  ceilingPrice: number;
+  benchmarkMandiFarmer: number;
+  benchmarkMandiConsumer: number;
+  optimalRecommendedPrice: number;
+}
+
+export interface UserProfile {
+  id: string;
+  phone: string;
+  name: string;
+  role: UserRole;
+  location: string;
+  verificationStatus: VerificationStatus;
+  farmerKyc?: FarmerKycData;
+  buyerKyc?: BuyerKycData;
+}

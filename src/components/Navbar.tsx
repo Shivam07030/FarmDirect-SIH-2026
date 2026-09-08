@@ -12,7 +12,8 @@ import {
   Users, 
   Store, 
   Globe,
-  Download
+  Download,
+  ShieldCheck
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -59,6 +60,7 @@ export const Navbar: React.FC = () => {
     } else {
       return [
         { id: 'overview', label: 'Overview', icon: Home },
+        { id: 'kyc', label: 'Compliance & KYC', icon: ShieldCheck },
         { id: 'orders', label: 'Orders', icon: ShoppingBag },
         { id: 'logistics', label: 'Logistics', icon: Truck },
         { id: 'users', label: 'Users', icon: Users },

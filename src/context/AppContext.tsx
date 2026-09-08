@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, UserRole, OrderStatus } from '../types';
+import { Product, Order, UserRole, OrderStatus, UserProfile } from '../types';
 import { 
   fetchProducts, 
   createProductListing, 
@@ -68,9 +68,10 @@ interface AppContextType {
   };
   isAuthenticated: boolean;
   setIsAuthenticated: (auth: boolean) => void;
+  currentUser: UserProfile | null;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  loginAs: (role: UserRole) => void;
+  loginAs: (role: UserRole, user?: any) => void;
   logout: () => void;
 }
 
@@ -81,6 +82,7 @@ const STORAGE_ORDERS_KEY = 'farmdirect_orders_v1';
 const STORAGE_ROLE_KEY = 'farmdirect_role_v1';
 const STORAGE_LANG_KEY = 'farmdirect_lang_v1';
 const STORAGE_AUTH_KEY = 'farmdirect_auth_v1';
+const STORAGE_USER_KEY = 'farmdirect_user_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRoleState] = useState<UserRole>(() => {
@@ -88,7 +90,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (saved as UserRole) || 'FARMER';
   });
 
-  const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem(STORAGE_USER_KEY);
+    if (saved) {
+      try { return JSON.parse(saved); } catch { return null; }
+    }
+    return null;
+  });
+
+  const [isAuthenticated, setIsAuthenticatedState] = useState<boolean>(() => {
+    return localStorage.getItem(STORAGE_AUTH_KEY) === 'true';
+  });
 
   const [activeTab, setActiveTab] = useState<string>('home');
 
@@ -99,12 +111,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setIsAuthenticated = (auth: boolean) => {
     setIsAuthenticatedState(auth);
+    localStorage.setItem(STORAGE_AUTH_KEY, String(auth));
   };
 
-  const loginAs = (selectedRole: UserRole) => {
+  const loginAs = (selectedRole: UserRole, userData?: any) => {
     setRoleState(selectedRole);
     localStorage.setItem(STORAGE_ROLE_KEY, selectedRole);
     setIsAuthenticated(true);
+
+    let profile: UserProfile;
+    if (userData && userData.id) {
+      profile = {
+        id: userData.id,
+        phone: userData.phone || '',
+        name: userData.name || (selectedRole === 'FARMER' ? 'Rajesh Kumar' : selectedRole === 'BUYER' ? 'FreshBasket Supermarket' : 'Admin'),
+        role: selectedRole,
+        location: userData.location || (selectedRole === 'FARMER' ? 'Agra Farm Cluster' : 'Delhi NCR'),
+        verificationStatus: userData.verificationStatus || 'VERIFIED',
+        farmerKyc: selectedRole === 'FARMER' ? {
+          pmKisanId: userData.pmKisanId || 'UP-2024-889123',
+          khasraNo: userData.khasraNo || '142/2A, Agra Revenue Block',
+          landSizeAcres: userData.landSizeAcres || 3.5,
+          clusterLocation: userData.clusterLocation || 'Agra Farm Cluster',
+          verifiedAt: '2026-03-01',
+        } : undefined,
+        buyerKyc: selectedRole === 'BUYER' ? {
+          gstin: userData.gstin || '07AAAAF1234A1Z5',
+          legalBusinessName: userData.businessLegalName || 'FreshBasket Retail Enterprises Pvt Ltd',
+          pan: userData.gstin ? userData.gstin.slice(2, 12) : 'AAAAF1234A',
+          state: 'Delhi (07)',
+          fssaiLicense: userData.fssaiLicense || '10019011004123',
+          tradeType: 'RETAILER',
+        } : undefined,
+      };
+    } else {
+      // Default verified profiles
+      if (selectedRole === 'FARMER') {
+        profile = {
+          id: 'USER-001',
+          phone: '+91 98765 43210',
+          name: 'Rajesh Kumar',
+          role: 'FARMER',
+          location: 'Agra Farm Cluster',
+          verificationStatus: 'VERIFIED',
+          farmerKyc: {
+            pmKisanId: 'UP-2024-889123',
+            khasraNo: '142/2A, Agra Revenue Block',
+            landSizeAcres: 3.5,
+            clusterLocation: 'Agra Farm Cluster',
+            verifiedAt: '2026-03-01',
+          },
+        };
+      } else if (selectedRole === 'BUYER') {
+        profile = {
+          id: 'USER-002',
+          phone: '+91 98112 00000',
+          name: 'FreshBasket Supermarket',
+          role: 'BUYER',
+          location: 'Delhi NCR Hub',
+          verificationStatus: 'VERIFIED',
+          buyerKyc: {
+            gstin: '07AAAAF1234A1Z5',
+            legalBusinessName: 'FreshBasket Retail Enterprises Pvt Ltd',
+            pan: 'AAAAF1234A',
+            state: 'Delhi (07)',
+            fssaiLicense: '10019011004123',
+            tradeType: 'RETAILER',
+          },
+        };
+      } else {
+        profile = {
+          id: 'USER-003',
+          phone: '+91 99999 00000',
+          name: 'FarmDirect Admin Ops',
+          role: 'ADMIN',
+          location: 'HQ Central',
+          verificationStatus: 'VERIFIED',
+        };
+      }
+    }
+
+    setCurrentUser(profile);
+    localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(profile));
+
     if (selectedRole === 'FARMER') {
       setCurrentView('farmer');
       setActiveTab('home');
@@ -119,6 +208,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
     setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem(STORAGE_USER_KEY);
     setActiveTab('home');
   };
 
