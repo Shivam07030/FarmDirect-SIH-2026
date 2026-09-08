@@ -199,24 +199,41 @@ export function speakConfirmation(
     return;
   }
 
-  window.speechSynthesis.cancel(); // Stop any pending utterances
+  try {
+    window.speechSynthesis.cancel(); // Stop any pending utterances
 
-  const text =
-    language === 'hi'
-      ? `आपका ${intent.quantityKg} किलो ${intent.cropHindi}, उचित मूल्य ₹${intent.pricePerKg} प्रति किलो पर मंडी में लिस्ट करने के लिए तैयार है।`
-      : `Your ${intent.quantityKg} kg of ${intent.cropName} is ready to list on the marketplace at the fair price of ₹${intent.pricePerKg} per kg.`;
+    const text =
+      language === 'hi'
+        ? `आपका ${intent.quantityKg} किलो ${intent.cropHindi}, उचित मूल्य ₹${intent.pricePerKg} प्रति किलो पर मंडी में लिस्ट करने के लिए तैयार है।`
+        : `Your ${intent.quantityKg} kg of ${intent.cropName} is ready to list on the marketplace at the fair price of ₹${intent.pricePerKg} per kg.`;
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
-  utterance.rate = 0.95;
-  utterance.pitch = 1.0;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
+    utterance.rate = 0.92;
+    utterance.pitch = 1.0;
 
-  if (onEnd) {
-    utterance.onend = onEnd;
-    utterance.onerror = onEnd;
+    const voices = window.speechSynthesis.getVoices();
+    if (language === 'hi') {
+      const hiVoice = voices.find(
+        (v) => v.lang.includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.toLowerCase().includes('lekha')
+      );
+      if (hiVoice) utterance.voice = hiVoice;
+    } else {
+      const enVoice = voices.find(
+        (v) => v.lang.includes('en-IN') || v.name.toLowerCase().includes('india')
+      );
+      if (enVoice) utterance.voice = enVoice;
+    }
+
+    if (onEnd) {
+      utterance.onend = onEnd;
+      utterance.onerror = onEnd;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    if (onEnd) onEnd();
   }
-
-  window.speechSynthesis.speak(utterance);
 }
 
 /**
