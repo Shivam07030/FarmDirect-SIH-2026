@@ -461,9 +461,12 @@ app.post('/api/auth/verify-farmer-land', async (req, res) => {
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const rawPhone = req.body.phone || '';
-    const phone = rawPhone.replace(/[\s\-]/g, '');
-    if (!phone) {
-      return res.status(400).json({ error: 'Phone number is required' });
+    const phone = rawPhone.replace(/\D/g, '').slice(-10);
+    if (!phone || phone.length !== 10) {
+      return res.status(400).json({ error: 'Valid 10-digit mobile number is required' });
+    }
+    if (!/^[6-9]/.test(phone)) {
+      return res.status(400).json({ error: 'Indian mobile numbers must start with 6, 7, 8, or 9' });
     }
 
     const staticOtp = '2026';
@@ -909,7 +912,7 @@ app.post('/api/payment/cashfree/release-payout', async (req, res) => {
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const rawPhone = req.body.phone || '';
-    const phone = rawPhone.replace(/[\s\-]/g, '');
+    const phone = rawPhone.replace(/\D/g, '').slice(-10);
     const { 
       otp, 
       role, 
