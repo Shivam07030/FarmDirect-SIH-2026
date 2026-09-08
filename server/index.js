@@ -24,7 +24,8 @@ app.get('/api/health', async (req, res) => {
 
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
-    const { phone } = req.body;
+    const rawPhone = req.body.phone || '';
+    const phone = rawPhone.replace(/[\s\-]/g, '');
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });
     }
@@ -52,7 +53,9 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
-    const { phone, otp, role, name } = req.body;
+    const rawPhone = req.body.phone || '';
+    const phone = rawPhone.replace(/[\s\-]/g, '');
+    const { otp, role, name } = req.body;
     if (!phone || !otp) {
       return res.status(400).json({ error: 'Phone and OTP are required' });
     }
@@ -105,6 +108,17 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     console.error('verify-otp error:', err);
     res.status(500).json({ error: 'Failed to verify OTP' });
   }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    res.json({ success: true, user });
+  });
 });
 
 app.get('/api/products', async (req, res) => {
