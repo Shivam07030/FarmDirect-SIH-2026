@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { exec } from 'child_process';
 import { pool, testConnection } from './db.js';
 
 dotenv.config();
@@ -19,6 +20,13 @@ app.get('/api/health', async (req, res) => {
     status: 'ok',
     database: dbOk ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
+  });
+});
+
+app.post('/api/webhook/deploy', (req, res) => {
+  res.json({ status: 'Deployment triggered', timestamp: new Date().toISOString() });
+  exec('/root/deploy.sh > /tmp/deploy.log 2>&1 &', (error) => {
+    if (error) console.error('Deploy script error:', error);
   });
 });
 
