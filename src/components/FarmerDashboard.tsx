@@ -26,7 +26,10 @@ import {
   Mic,
   QrCode,
   Sparkles,
-  Award
+  Award,
+  Lock,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
@@ -205,6 +208,7 @@ export const FarmerDashboard: React.FC = () => {
         });
       }
       updateCurrentUserProfile({
+        verificationStatus: 'PENDING',
         farmerKyc: {
           pmKisanId: kycFormPmKisan,
           khasraNo: kycFormKhasra,
@@ -216,16 +220,17 @@ export const FarmerDashboard: React.FC = () => {
           bankIfsc: kycFormBankIfsc,
           bankName: kycFormBankName,
           dbtLinked: Boolean(kycFormBankAccount || kycFormAadhaar),
-          isVerified: true
+          isVerified: false
         }
       });
-      setKycSuccessMsg(isHindi ? 'पीएम-किसान, आधार व बैंक रिकॉर्ड सफलतापूर्वक अपडेट हुआ!' : 'Land, PM-KISAN, Aadhaar & Bank records updated successfully!');
+      setKycSuccessMsg(isHindi ? 'केवाईसी दस्तावेज जमा किए गए! एडमिन पोर्टल से सत्यापन लंबित है।' : 'KYC records submitted! Admin portal approval pending.');
       setTimeout(() => {
         setIsKycModalOpen(false);
         setKycSuccessMsg('');
-      }, 1000);
+      }, 1200);
     } catch {
       updateCurrentUserProfile({
+        verificationStatus: 'PENDING',
         farmerKyc: {
           pmKisanId: kycFormPmKisan,
           khasraNo: kycFormKhasra,
@@ -237,14 +242,14 @@ export const FarmerDashboard: React.FC = () => {
           bankIfsc: kycFormBankIfsc,
           bankName: kycFormBankName,
           dbtLinked: Boolean(kycFormBankAccount || kycFormAadhaar),
-          isVerified: true
+          isVerified: false
         }
       });
-      setKycSuccessMsg(isHindi ? 'सत्र में सफलतापूर्वक अपडेट हुआ!' : 'Updated in active session!');
+      setKycSuccessMsg(isHindi ? 'केवाईसी दस्तावेज जमा किए गए! एडमिन पोर्टल सत्यापन लंबित है।' : 'KYC records submitted! Admin portal approval pending.');
       setTimeout(() => {
         setIsKycModalOpen(false);
         setKycSuccessMsg('');
-      }, 1000);
+      }, 1200);
     } finally {
       setKycSaving(false);
     }
@@ -253,6 +258,7 @@ export const FarmerDashboard: React.FC = () => {
   const upcomingPickup = myOrders.find((o) => o.status === 'Confirmed' || o.status === 'In Transit') || myOrders[0];
   const calculatedEarnings = myOrders.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
   const displayEarnings = farmerStats.totalEarningsInr > 0 ? farmerStats.totalEarningsInr : calculatedEarnings;
+  const isKycApproved = currentUser?.verificationStatus === 'VERIFIED';
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -335,6 +341,13 @@ export const FarmerDashboard: React.FC = () => {
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (currentUser?.verificationStatus !== 'VERIFIED') {
+      alert(isHindi 
+        ? 'केवाईसी अनुमोदन आवश्यक: आपका खाता एडमिन सत्यापन की प्रतीक्षा कर रहा है। अनुमोदन के बाद ही फसल बेची जा सकती है।' 
+        : 'KYC Approval Required: Your account is awaiting Admin Portal verification before listing produce.');
+      return;
+    }
+
     if (isBelowFloor) {
       alert(isHindi 
         ? `मूल्य न्यूनतम मूल्य सीमा (₹${floorPrice}/kg) से कम है। संकट बिक्री प्रतिबंधित है।` 
@@ -372,6 +385,13 @@ export const FarmerDashboard: React.FC = () => {
   };
 
   const handleConfirmVoiceListing = (intent: SpokenCropIntent) => {
+    if (currentUser?.verificationStatus !== 'VERIFIED') {
+      alert(isHindi 
+        ? 'केवाईसी अनुमोदन आवश्यक: आपका खाता एडमिन सत्यापन की प्रतीक्षा कर रहा है।' 
+        : 'KYC Approval Required: Your account is awaiting Admin Portal verification.');
+      return;
+    }
+
     setCropName(intent.cropName);
     setQuantity(intent.quantityKg);
     setPricePerKg(intent.pricePerKg);
@@ -476,10 +496,17 @@ export const FarmerDashboard: React.FC = () => {
             {/* Top Verification Strip */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-stone-100">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
-                </span>
+                {isKycApproved ? (
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{isHindi ? 'पीएम-किसान सत्यापित किसान' : 'PM-KISAN Verified Farmer'}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-amber-300">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{isHindi ? 'केवाईसी सत्यापन लंबित (Admin Approval Pending)' : 'KYC Pending Admin Approval'}</span>
+                  </span>
+                )}
                 <span className="text-[11px] text-stone-600 font-mono bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200 flex items-center gap-1.5">
                   <span>PM-KISAN: {currentUser?.farmerKyc?.pmKisanId ? currentUser.farmerKyc.pmKisanId : 'UP-2024-889123'}</span>
                   <span>·</span>
@@ -516,6 +543,44 @@ export const FarmerDashboard: React.FC = () => {
               </button>
             </div>
 
+            {/* KYC Pending Alert Banner */}
+            {!isKycApproved && (
+              <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-950">
+                      {isHindi ? 'खाता सत्यापन प्रक्रियाधीन है (Listing Locked)' : 'Account Verification Pending (Listing Locked)'}
+                    </h4>
+                    <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed">
+                      {isHindi 
+                        ? 'आपके केवाईसी दस्तावेज जमा हो चुके हैं और एडमिन अनुमोदन की प्रतीक्षा कर रहे हैं। धोखाधड़ी रोकने के लिए नई फसल लिस्टिंग अनुमोदन के बाद ही शुरू होगी।'
+                        : 'Your KYC records are submitted and awaiting approval from the Admin Portal. To ensure marketplace trust, listing produce is locked until approved.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateCurrentUserProfile({
+                        verificationStatus: 'VERIFIED',
+                        farmerKyc: {
+                          ...(currentUser?.farmerKyc || {} as any),
+                          isVerified: true
+                        }
+                      });
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1"
+                    title="Simulate Admin instant approval"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>{isHindi ? 'डेमो: तुरंत अनुमोदित करें' : 'Demo: Approve Account'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Middle Row: Farmer Name & Primary Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
               <div>
@@ -532,20 +597,54 @@ export const FarmerDashboard: React.FC = () => {
               <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsVoiceModalOpen(true)}
-                  className="px-4 py-2.5 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-700 hover:to-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm hover:shadow-md border border-amber-400/30 shrink-0 whitespace-nowrap"
+                  onClick={() => {
+                    if (!isKycApproved) {
+                      alert(isHindi 
+                        ? 'केवाईसी अनुमोदन आवश्यक: आपका खाता एडमिन सत्यापन की प्रतीक्षा कर रहा है। नई फसल लिस्ट करने से पहले अनुमोदन आवश्यक है।' 
+                        : 'KYC Approval Required: Your account is awaiting Admin Portal verification before listing produce.');
+                      return;
+                    }
+                    setIsVoiceModalOpen(true);
+                  }}
+                  className={`px-4 py-2.5 text-white text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm shrink-0 whitespace-nowrap ${
+                    isKycApproved
+                      ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:from-amber-700 hover:to-amber-700 hover:shadow-md border border-amber-400/30'
+                      : 'bg-stone-400 hover:bg-stone-500'
+                  }`}
+                  title={!isKycApproved ? 'KYC Pending Admin Approval' : 'Kisan Vaani AI Voice Assistant'}
                 >
-                  <Mic className="w-4 h-4 text-amber-100 animate-pulse shrink-0" />
+                  {!isKycApproved ? (
+                    <Lock className="w-4 h-4 text-stone-100 shrink-0" />
+                  ) : (
+                    <Mic className="w-4 h-4 text-amber-100 animate-pulse shrink-0" />
+                  )}
                   <span>{isHindi ? 'बोलकर फसल बेचें' : 'Kisan Vaani AI'}</span>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                  {isKycApproved && <Sparkles className="w-3.5 h-3.5 text-amber-200 shrink-0" />}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="px-4 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-xs shrink-0 whitespace-nowrap"
+                  onClick={() => {
+                    if (!isKycApproved) {
+                      alert(isHindi 
+                        ? 'केवाईसी अनुमोदन आवश्यक: आपका खाता एडमिन सत्यापन की प्रतीक्षा कर रहा है। नई फसल लिस्ट करने से पहले अनुमोदन आवश्यक है।' 
+                        : 'KYC Approval Required: Your account is awaiting Admin Portal verification before listing produce.');
+                      return;
+                    }
+                    setIsAddModalOpen(true);
+                  }}
+                  className={`px-4 py-2.5 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-xs shrink-0 whitespace-nowrap ${
+                    isKycApproved
+                      ? 'bg-[#0E3B2B] hover:bg-[#144E39]'
+                      : 'bg-stone-400 hover:bg-stone-500'
+                  }`}
+                  title={!isKycApproved ? 'KYC Pending Admin Approval' : 'Sell Crop'}
                 >
-                  <Plus className="w-4 h-4 shrink-0" />
+                  {!isKycApproved ? (
+                    <Lock className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <Plus className="w-4 h-4 shrink-0" />
+                  )}
                   <span>{isHindi ? 'फसल बेचें' : 'Sell Crop'}</span>
                 </button>
               </div>

@@ -11,7 +11,9 @@ import {
   RefreshCw, 
   ShieldCheck, 
   Languages,
-  Check
+  Check,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { 
   parseSpokenCropIntent, 
@@ -40,11 +42,18 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
   const [transcript, setTranscript] = useState('');
   const [parsedIntent, setParsedIntent] = useState<SpokenCropIntent | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [waveHeights, setWaveHeights] = useState<number[]>([12, 24, 40, 60, 48, 32, 16, 28, 52]);
 
   const recognitionRef = useRef<KisanVoiceRecognition | null>(null);
   const animationIntervalRef = useRef<any>(null);
+
+  // Detect whether running in insecure HTTP context where Chrome blocks mic
+  const isHttpInsecure = typeof window !== 'undefined' && 
+    window.location.protocol === 'http:' && 
+    window.location.hostname !== 'localhost' && 
+    window.location.hostname !== '127.0.0.1';
 
   useEffect(() => {
     recognitionRef.current = new KisanVoiceRecognition();
@@ -58,6 +67,11 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
       if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
     };
   }, []);
+
+  // Sync with prop if initialHindi changes
+  useEffect(() => {
+    setSelectedLang(initialHindi ? 'hi' : 'en');
+  }, [initialHindi]);
 
   // Animate sound waves while listening or speaking
   useEffect(() => {
@@ -83,17 +97,17 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
     setTranscript('');
     setParsedIntent(null);
 
-    const isSecure = typeof window !== 'undefined' && (window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
 
-    if (!isSecure || !recognitionRef.current?.isSupported()) {
-      // Chrome blocks live mic on non-localhost HTTP origins.
-      // Seamlessly activate Kisan Vaani AI Voice Assistant!
+    if (!recognitionRef.current?.isSupported()) {
       setVoiceError(
-        isHindi
-          ? 'Chrome HTTP नीति: लाइव माइक ब्लॉक है (HTTPS आवश्यक)। किसान वाणी AI वॉइस असिस्टेंट ऑडियो सक्रिय किया गया।'
-          : 'Chrome HTTP policy: Live hardware mic restricted on HTTP. Activated Kisan Vaani AI Voice Assistant.'
+        selectedLang === 'hi'
+          ? 'आपके ब्राउज़र में स्पीच रिकग्निशन समर्थित नहीं है। कृपया नीचे दिए गए उदाहरण पर क्लिक करें या टाइप करें।'
+          : 'Speech recognition is not supported in this browser. Please tap a sample below or type.'
       );
-      simulateVoiceDemo();
       return;
     }
 
@@ -103,7 +117,7 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
         selectedLang,
         (text, isFinal) => {
           setTranscript(text);
-          if (text.trim().length > 3) {
+          if (text.trim().length > 2) {
             const intent = parseSpokenCropIntent(text, selectedLang);
             setParsedIntent(intent);
           }
@@ -112,27 +126,32 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
             if (text.trim()) {
               const finalIntent = parseSpokenCropIntent(text, selectedLang);
               setParsedIntent(finalIntent);
-              triggerSpeechFeedback(finalIntent);
+              if (!isAudioMuted) {
+                triggerSpeechFeedback(finalIntent);
+              }
             }
           }
         },
         (err) => {
           setIsListening(false);
-          // If microphone blocked or error occurs, smoothly run voice assistant demo with spoken audio
-          setVoiceError(
-            isHindi
-              ? 'ब्राउज़र ने माइक अनुमति नहीं दी। किसान वाणी AI वॉइस असिस्टेंट सक्रिय किया गया।'
-              : 'Microphone permission denied. Running Kisan Vaani AI Voice Assistant.'
-          );
-          simulateVoiceDemo();
+          // Never auto-fill text or hijack. Clearly explain reason to user:
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            setVoiceError(
+              selectedLang === 'hi'
+                ? 'माइक अनुमति अस्वीकृत: गूगल क्रोम केवल सुरक्षित HTTPS पर माइक अनुमति देता है। कृपया नीचे दिए गए "सुरक्षित HTTPS खोलें (पोर्ट 3443)" बटन पर जाएं।'
+                : 'Microphone permission blocked: Chrome requires HTTPS for live mic. Click "Open HTTPS (Port 3443)" below to speak live.'
+            );
+          } else {
+            setVoiceError(err);
+          }
         },
         () => {
           setIsListening(false);
         }
       );
-    } catch (e) {
+    } catch (e: any) {
       setIsListening(false);
-      simulateVoiceDemo();
+      setVoiceError(e.message || 'Microphone error');
     }
   };
 
@@ -144,11 +163,14 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
     if (transcript.trim()) {
       const intent = parseSpokenCropIntent(transcript, selectedLang);
       setParsedIntent(intent);
-      triggerSpeechFeedback(intent);
+      if (!isAudioMuted) {
+        triggerSpeechFeedback(intent);
+      }
     }
   };
 
   const triggerSpeechFeedback = (intent: SpokenCropIntent) => {
+    if (isAudioMuted) return;
     setIsSpeaking(true);
     speakConfirmation(intent, selectedLang, () => {
       setIsSpeaking(false);
@@ -179,7 +201,9 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
         setIsListening(false);
         const intent = parseSpokenCropIntent(sample, selectedLang);
         setParsedIntent(intent);
-        triggerSpeechFeedback(intent);
+        if (!isAudioMuted) {
+          triggerSpeechFeedback(intent);
+        }
       }
     }, 160);
   };
@@ -198,7 +222,9 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
     if (!transcript.trim()) return;
     const intent = parseSpokenCropIntent(transcript, selectedLang);
     setParsedIntent(intent);
-    triggerSpeechFeedback(intent);
+    if (!isAudioMuted) {
+      triggerSpeechFeedback(intent);
+    }
   };
 
   const samplePhrases = isHindi
@@ -223,7 +249,7 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-5 shadow-2xl border border-stone-200 relative">
+      <div className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4 shadow-2xl border border-stone-200 relative">
         
         {/* Top Decorative Header Accent */}
         <div className="absolute -top-12 -right-12 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -238,7 +264,7 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-stone-900 font-serif">
-                  {isHindi ? 'किसान वाणी AI वॉइस असिस्टेंट' : 'Kisan Vaani AI Voice Assistant'}
+                  {isHindi ? 'किसान वाणी AI असिस्टेंट' : 'Kisan Vaani AI Assistant'}
                 </h2>
                 <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
                   {isHindi ? 'बोलकर फसल बेचें' : 'Voice-to-Listing'}
@@ -246,22 +272,31 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
               </div>
               <p className="text-xs text-stone-500">
                 {isHindi 
-                  ? 'अपनी फसल, मात्रा और कीमत बोलें — किसान वाणी स्वतः मंडी में लिस्ट करेगी' 
-                  : 'Speak crop, quantity, and price in natural language — instant marketplace listing'}
+                  ? 'फसल, मात्रा और भाव बोलें — स्वतः मंडी में लिस्ट हो जाएगी' 
+                  : 'Speak crop, quantity, and price for instant listing'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Language Switcher */}
+            {/* Audio Mute/Unmute Toggle */}
             <button
               type="button"
-              onClick={() => setSelectedLang((prev) => (prev === 'hi' ? 'en' : 'hi'))}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors flex items-center gap-1 cursor-pointer"
-              title="Toggle Language"
+              onClick={() => {
+                if (!isAudioMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                  window.speechSynthesis.cancel();
+                  setIsSpeaking(false);
+                }
+                setIsAudioMuted(!isAudioMuted);
+              }}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium ${
+                isAudioMuted
+                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+              }`}
+              title={isAudioMuted ? 'Unmute voice playback' : 'Mute voice playback'}
             >
-              <Languages className="w-3.5 h-3.5" />
-              <span>{isHindi ? 'हिंदी' : 'English'}</span>
+              {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <button
               type="button"
@@ -272,6 +307,98 @@ export const KisanVaaniModal: React.FC<KisanVaaniModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* PROMINENT BILINGUAL MODE SELECTOR (Hindi / English) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] text-stone-500 font-medium px-1">
+            <span className="flex items-center gap-1">
+              <Languages className="w-3.5 h-3.5 text-emerald-700" />
+              <span>{isHindi ? 'भाषा चुनें (बोलने व सुनने के लिए):' : 'Select Voice Language (Speak & Listen):'}</span>
+            </span>
+            <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              {selectedLang === 'hi' ? '🇮🇳 Hindi Active (hi-IN)' : '🌐 English Active (en-IN)'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100/90 rounded-2xl border border-stone-200">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLang('hi');
+                setVoiceError('');
+                if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                  window.speechSynthesis.cancel();
+                  setIsSpeaking(false);
+                }
+              }}
+              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                selectedLang === 'hi'
+                  ? 'bg-[#0E3B2B] text-white shadow-md ring-2 ring-emerald-600/30'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-white/80'
+              }`}
+            >
+              <span className="text-base">🇮🇳</span>
+              <div className="text-left leading-tight">
+                <div>हिंदी मोड</div>
+                <div className="text-[10px] font-normal opacity-80">बोलें व सुनें हिंदी में</div>
+              </div>
+              {selectedLang === 'hi' && <Check className="w-4 h-4 ml-auto" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLang('en');
+                setVoiceError('');
+                if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                  window.speechSynthesis.cancel();
+                  setIsSpeaking(false);
+                }
+              }}
+              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                selectedLang === 'en'
+                  ? 'bg-[#0E3B2B] text-white shadow-md ring-2 ring-emerald-600/30'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-white/80'
+              }`}
+            >
+              <span className="text-base">🌐</span>
+              <div className="text-left leading-tight">
+                <div>English Mode</div>
+                <div className="text-[10px] font-normal opacity-80">Speak & Listen</div>
+              </div>
+              {selectedLang === 'en' && <Check className="w-4 h-4 ml-auto" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Insecure HTTP Warning with Direct HTTPS Switch */}
+        {isHttpInsecure && (
+          <div className="bg-amber-50/90 border border-amber-300 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-start gap-2.5 text-amber-950 text-xs">
+              <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-semibold block text-amber-900">
+                  {isHindi ? 'लाइव माइक के लिए HTTPS आवश्यक है' : 'Live mic requires secure HTTPS'}
+                </strong>
+                <p className="text-[11px] text-stone-600 leading-snug">
+                  {isHindi 
+                    ? 'गूगल क्रोम HTTP पर हार्डवेयर माइक ब्लॉक करता है। लाइव आवाज से बोलने के लिए सुरक्षित पोर्ट 3443 खोलें:' 
+                    : 'Chrome restricts live microphone on insecure HTTP. To speak into your mic, open port 3443:'}
+                </p>
+              </div>
+            </div>
+            <a
+              href={`https://${typeof window !== 'undefined' ? window.location.hostname : '169.58.5.209'}:3443/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition-colors shadow-xs"
+            >
+              <Lock className="w-3 h-3" />
+              <span>{isHindi ? 'HTTPS (3443) खोलें' : 'Open HTTPS (Port 3443)'}</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        )}
 
         {/* Voice Animation & Microphone Centerpiece */}
         <div className="flex flex-col items-center justify-center py-4 space-y-4">

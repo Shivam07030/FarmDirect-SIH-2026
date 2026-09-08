@@ -238,6 +238,18 @@ export const AdminDashboard: React.FC = () => {
       setKycQueue((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, verificationStatus: newStatus } : u))
       );
+      try {
+        const stored = localStorage.getItem('farmdirect_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.id === userId) {
+            parsed.verificationStatus = newStatus;
+            if (parsed.farmerKyc) parsed.farmerKyc.isVerified = newStatus === 'VERIFIED';
+            if (parsed.buyerKyc) parsed.buyerKyc.isVerified = newStatus === 'VERIFIED';
+            localStorage.setItem('farmdirect_user', JSON.stringify(parsed));
+          }
+        }
+      } catch {}
     } finally {
       setActionInProgress(null);
     }
