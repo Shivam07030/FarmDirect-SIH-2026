@@ -188,50 +188,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return res.success;
   };
 
-  const [tickets, setTickets] = useState<SupportTicket[]>([
-    {
-      id: 'TKT-001',
-      ticketNumber: 'TKT-8841',
-      userId: 'USER-002',
-      userName: 'FreshBasket Supermarket',
-      userRole: 'BUYER',
-      orderId: 'ORD-8812',
-      subject: 'Temperature spike during Agra-Mathura reefer transit',
-      category: 'COLD_CHAIN_TEMP_BREACH',
-      description: 'Sensor logged 7.8°C at Mathura cross-dock for 45 minutes exceeding the 6.0°C fresh limit. Crates show slight condensation.',
-      priority: 'HIGH',
-      status: 'IN_INVESTIGATION',
-      adminNotes: 'Contacted cold-chain driver Manpreet Singh. Telematics log requested from vehicle DL-1L-4482.',
-      resolutionSummary: undefined,
-      createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    },
-    {
-      id: 'TKT-002',
-      ticketNumber: 'TKT-8842',
-      userId: 'USER-001',
-      userName: 'Rajesh Kumar',
-      userRole: 'FARMER',
-      orderId: 'ORD-8813',
-      subject: 'Escrow settlement confirmation delay',
-      category: 'PAYMENT_ESCROW',
-      description: 'Delivery OTP was verified at Azadpur Mandi terminal yesterday, awaiting direct DBT bank confirmation.',
-      priority: 'MEDIUM',
-      status: 'RESOLVED',
-      adminNotes: 'Bank UTR #UTIB0002910 verified. Settlement credited to Canara Bank account.',
-      resolutionSummary: '₹2,020 Escrow payout released to farmer account',
-      createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-    }
-  ]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
 
   const fetchTickets = async () => {
     try {
       const data = await fetchTicketsApi();
-      if (data && data.length > 0) {
+      if (Array.isArray(data)) {
         setTickets(data);
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to fetch tickets:', err);
+    }
   };
 
   useEffect(() => {
@@ -249,23 +216,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const uName = currentUser?.name || (role === 'FARMER' ? farmerName : buyerName);
     const uRole = (role === 'FARMER' ? 'FARMER' : 'BUYER') as 'FARMER' | 'BUYER';
 
-    const fallbackTkt: SupportTicket = {
-      id: `TKT-${Date.now()}`,
-      ticketNumber: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
-      userId: uId,
-      userName: uName,
-      userRole: uRole,
-      orderId: ticketData.orderId,
-      subject: ticketData.subject,
-      category: ticketData.category as any,
-      description: ticketData.description,
-      priority: (ticketData.priority || 'MEDIUM') as any,
-      status: 'OPEN',
-      createdAt: new Date().toISOString()
-    };
-
-    setTickets((prev) => [fallbackTkt, ...prev]);
-
     try {
       const res = await createTicketApi({
         userId: uId,
@@ -274,14 +224,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...ticketData,
       });
       if (res) {
-        setTickets((prev) => prev.map((t) => (t.id === fallbackTkt.id ? res : t)));
-        showToast('success', 'Grievance Ticket Registered', `Ticket #${res.ticketNumber} logged. Admin dispute desk alerted.`);
+        setTickets((prev) => [res, ...prev.filter((t) => t.id !== res.id)]);
+        showToast('success', 'Grievance Ticket Registered', `Ticket #${res.ticketNumber} logged in database.`);
         return res;
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to create ticket:', err);
+    }
 
-    showToast('success', 'Grievance Ticket Registered', `Ticket #${fallbackTkt.ticketNumber} logged. Admin dispute desk alerted.`);
-    return fallbackTkt;
+    showToast('error', 'Ticket Registration Failed', 'Could not register grievance with backend database.');
+    return null;
   };
 
   const updateTicketStatus = async (

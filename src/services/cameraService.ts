@@ -61,19 +61,50 @@ export function openFileCameraPicker(): Promise<PhotoCaptureResult> {
   });
 }
 
-export async function captureProducePhoto(): Promise<PhotoCaptureResult> {
-  // If running inside Capacitor native container (Android APK / iOS)
+export async function requestCameraPermission(): Promise<boolean> {
   if (Capacitor.isNativePlatform()) {
     try {
+      const check = await Camera.checkPermissions();
+      if (check.camera === 'granted') return true;
+      const res = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+      return res.camera === 'granted';
+    } catch {
+      return false;
+    }
+  }
+
+  // Web browser
+  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach((t) => t.stop());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function captureProducePhoto(): Promise<PhotoCaptureResult> {
+  // 1. If running inside Capacitor native container (Android APK / iOS)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Explicitly check & request Android runtime camera permissions
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        // Still attempt Camera.getPhoto as Capacitor may show its own prompt
+      }
+
       const photoPromise = Camera.getPhoto({
         quality: 85,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
-        source: CameraSource.Prompt,
+        source: CameraSource.Camera,
       });
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Camera launch timeout')), 5000)
+        setTimeout(() => reject(new Error('Camera launch timeout')), 10000)
       );
 
       const photo = await Promise.race([photoPromise, timeoutPromise]);
@@ -90,6 +121,16 @@ export async function captureProducePhoto(): Promise<PhotoCaptureResult> {
     }
   }
 
-  // Running on desktop/mobile web browser (HTTP/HTTPS)
+  // 2. Running on desktop/mobile web browser (HTTP/HTTPS)
+  // Request camera permission if browser supports mediaDevices
+  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (err: any) {
+      console.warn('Browser camera permission prompt result:', err.message);
+    }
+  }
+
   return openFileCameraPicker();
 }

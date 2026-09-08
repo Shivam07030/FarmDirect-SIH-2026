@@ -171,26 +171,15 @@ export const FarmerDashboard: React.FC = () => {
   const handleCapturePhoto = async () => {
     setIsCapturingPhoto(true);
 
-    // If file input ref is present on web, directly click it for instant native OS camera/file dialog
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-      setTimeout(() => {
-        setIsCapturingPhoto(false);
-      }, 2000);
-      return;
-    }
-
     try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 4000)
-      );
-      const photo = await Promise.race([captureProducePhoto(), timeoutPromise]);
+      const photo = await captureProducePhoto();
       if (photo?.imageUrl) {
         setProduceImage(photo.imageUrl);
       }
-    } catch {
-      // Fallback to file input
-      if (fileInputRef.current) {
+    } catch (err: any) {
+      console.warn('Direct camera capture fallback:', err);
+      // Fallback to file input picker if direct capture timed out or had issues
+      if (fileInputRef.current && !err?.message?.includes('cancelled')) {
         fileInputRef.current.click();
       }
     } finally {

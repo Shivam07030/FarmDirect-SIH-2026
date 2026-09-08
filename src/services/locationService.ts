@@ -1,4 +1,5 @@
 import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 export interface LocationResult {
   latitude: number;
@@ -7,55 +8,87 @@ export interface LocationResult {
   locationName: string;
 }
 
-export async function getCurrentCoordinates(): Promise<LocationResult> {
-  try {
-    const coordinates = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 10000,
-    });
-
-    const lat = coordinates.coords.latitude;
-    const lng = coordinates.coords.longitude;
-    const accuracy = coordinates.coords.accuracy;
-
-    return {
-      latitude: lat,
-      longitude: lng,
-      accuracy,
-      locationName: getApproximateRegion(lat, lng),
-    };
-  } catch {
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      return new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            resolve({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-              locationName: getApproximateRegion(pos.coords.latitude, pos.coords.longitude),
-            });
-          },
-          () => {
-            resolve({
-              latitude: 27.1767,
-              longitude: 78.0081,
-              accuracy: 25,
-              locationName: 'Agra Farm Cluster',
-            });
-          },
-          { timeout: 8000 }
-        );
-      });
+export async function requestLocationPermission(): Promise<boolean> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const check = await Geolocation.checkPermissions();
+      if (check.location === 'granted') return true;
+      const res = await Geolocation.requestPermissions({ permissions: ['location', 'coarseLocation'] });
+      return res.location === 'granted';
+    } catch {
+      return false;
     }
-
-    return {
-      latitude: 27.1767,
-      longitude: 78.0081,
-      accuracy: 25,
-      locationName: 'Agra Farm Cluster',
-    };
   }
+
+  // Web browser
+  if (typeof navigator !== 'undefined' && 'permissions' in navigator) {
+    try {
+      const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      return status.state === 'granted';
+    } catch {
+      return true;
+    }
+  }
+  return true;
+}
+
+export async function getCurrentCoordinates(): Promise<LocationResult> {
+  // 1. Native platform (Capacitor Android APK / iOS)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await requestLocationPermission();
+      const coordinates = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+      });
+
+      const lat = coordinates.coords.latitude;
+      const lng = coordinates.coords.longitude;
+      const accuracy = coordinates.coords.accuracy;
+
+      return {
+        latitude: lat,
+        longitude: lng,
+        accuracy,
+        locationName: getApproximateRegion(lat, lng),
+      };
+    } catch (err: any) {
+      console.warn('Native geolocation failed or denied:', err);
+    }
+  }
+
+  // 2. Web browser platform: explicitly call navigator.geolocation
+  if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            locationName: getApproximateRegion(pos.coords.latitude, pos.coords.longitude),
+          });
+        },
+        (err) => {
+          console.warn('Browser geolocation error / denied:', err.message);
+          resolve({
+            latitude: 27.1767,
+            longitude: 78.0081,
+            accuracy: 25,
+            locationName: 'Agra Farm Cluster',
+          });
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+  }
+
+  return {
+    latitude: 27.1767,
+    longitude: 78.0081,
+    accuracy: 25,
+    locationName: 'Agra Farm Cluster',
+  };
 }
 
 function getApproximateRegion(lat: number, lng: number): string {
