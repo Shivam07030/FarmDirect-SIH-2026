@@ -1,0 +1,660 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { ProductCategory } from '../types';
+import { Plus, X, Phone, MapPin, Navigation, TrendingUp } from 'lucide-react';
+import { getCurrentCoordinates } from '../services/locationService';
+
+export const FarmerDashboard: React.FC = () => {
+  const { 
+    products, 
+    orders, 
+    addProduct, 
+    updateOrderStatus,
+    farmerName,
+    activeTab,
+    farmerStats,
+    language
+  } = useApp();
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+
+  const [cropName, setCropName] = useState('Tomato');
+  const [quantity, setQuantity] = useState(450);
+  const [pricePerKg, setPricePerKg] = useState(24);
+  const [category, setCategory] = useState<ProductCategory>('Vegetables');
+  const [farmLocation, setFarmLocation] = useState('Agra Farm Cluster');
+  const [isLocating, setIsLocating] = useState(false);
+
+  const isHindi = language === 'hi';
+
+  const myProduce = products.filter(
+    (p) => p.farmerName.toLowerCase().includes('rajesh') || p.farmerName.toLowerCase().includes('you')
+  );
+  const myOrders = orders.filter(
+    (o) => o.farmerName.toLowerCase().includes('rajesh') || o.farmerName.toLowerCase().includes('you')
+  );
+
+  const handleDetectLocation = async () => {
+    setIsLocating(true);
+    try {
+      const loc = await getCurrentCoordinates();
+      setFarmLocation(`${loc.locationName} (GPS: ${loc.latitude.toFixed(3)}, ${loc.longitude.toFixed(3)})`);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addProduct({
+      name: cropName,
+      category,
+      quantity: Number(quantity),
+      initialQuantity: Number(quantity),
+      pricePerKg: Number(pricePerKg),
+      location: farmLocation || 'Agra',
+      harvestDate: new Date().toISOString().split('T')[0],
+      quality: 'Grade A (Premium)',
+      farmerName: `${farmerName} (You)`,
+      farmerPhone: '+91 98765 43210',
+    });
+    setIsAddModalOpen(false);
+  };
+
+  const handleTriggerSellTomato = () => {
+    setCropName('Tomato');
+    setPricePerKg(27);
+    setQuantity(300);
+    setIsAddModalOpen(true);
+  };
+
+  const cropPresets = [
+    { name: 'Tomato', label: isHindi ? 'टमाटर' : 'Tomato', price: 27, cat: 'Vegetables' as ProductCategory },
+    { name: 'Potato', label: isHindi ? 'आलू' : 'Potato', price: 18, cat: 'Vegetables' as ProductCategory },
+    { name: 'Onion', label: isHindi ? 'प्याज' : 'Onion', price: 28, cat: 'Vegetables' as ProductCategory },
+    { name: 'Wheat', label: isHindi ? 'गेहूं' : 'Wheat', price: 31, cat: 'Grains' as ProductCategory },
+    { name: 'Mustard', label: isHindi ? 'सरसों' : 'Mustard', price: 52, cat: 'Grains' as ProductCategory },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-5 sm:py-8 space-y-6 sm:space-y-8 font-sans">
+      
+      {activeTab === 'home' && (
+        <div className="space-y-6">
+          <section className="space-y-3 bg-white p-4 sm:p-5 rounded-2xl border border-stone-200/90 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  {isHindi ? 'सत्यापित किसान' : 'Verified Producer'}
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 font-serif tracking-tight mt-1">
+                  {isHindi ? 'सुप्रभात, राजेश' : 'Good morning, Rajesh'}
+                </h1>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {isHindi ? 'आगरा फार्म क्लस्टर · उत्तर प्रदेश' : 'Agra Farm Cluster · Uttar Pradesh'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-3.5 py-2.5 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isHindi ? 'फसल बेचें' : 'Sell Crop'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-stone-100">
+              <div className="p-3 bg-stone-50 rounded-xl">
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
+                  {isHindi ? 'कुल कमाई' : 'Total Earnings'}
+                </div>
+                <div className="text-xl sm:text-2xl font-mono font-bold text-stone-900 mt-0.5">
+                  ₹{farmerStats.totalEarningsInr > 0 ? farmerStats.totalEarningsInr.toLocaleString('en-IN') : '3,000'}
+                </div>
+              </div>
+
+              <div className="p-3 bg-stone-50 rounded-xl">
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
+                  {isHindi ? 'सक्रिय लॉट' : 'Active Lots'}
+                </div>
+                <div className="text-xl sm:text-2xl font-mono font-bold text-stone-900 mt-0.5">
+                  {myProduce.length} <span className="text-xs font-sans font-normal text-stone-500">{isHindi ? 'फसलें' : 'crops'}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="p-4 sm:p-5 rounded-2xl border border-stone-200 bg-white shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wider font-semibold text-emerald-800 flex items-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>{isHindi ? 'एआई मांग पूर्वानुमान' : 'AI Demand Insight'}</span>
+                </div>
+                <div className="text-sm font-semibold text-stone-900 flex items-center gap-1.5">
+                  <span>{isHindi ? 'टमाटर की मांग' : 'Tomato Demand'}</span>
+                  <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-xs">↑ 18%</span>
+                </div>
+                <div className="text-xs text-stone-600">
+                  {isHindi ? 'अनुमानित दर:' : 'Expected price:'} <span className="font-semibold text-stone-900">₹26–28/kg</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTriggerSellTomato}
+                className="px-3 py-2 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shrink-0"
+              >
+                {isHindi ? 'टमाटर लिस्ट करें' : 'List Tomato'}
+              </button>
+            </div>
+          </section>
+
+          <section className="p-4 sm:p-5 rounded-2xl border border-stone-200 bg-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-stone-400">
+                {isHindi ? 'आज का पिकअप' : 'Today\'s Pickup'}
+              </div>
+              <div className="text-sm font-semibold text-stone-900">
+                {isHindi ? 'आज · दोपहर 11:30 बजे' : 'Today · 11:30 AM'}
+              </div>
+              <div className="text-xs text-stone-500">
+                50 kg Tomato → Delhi (Reefer #DL-1L-4482)
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="tel:+919811234567"
+                className="flex-1 sm:flex-none text-center px-3 py-2 border border-stone-200 hover:border-stone-400 text-stone-800 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                <span>{isHindi ? 'ड्राइवर को कॉल' : 'Call Driver'}</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setIsTrackModalOpen(true)}
+                className="flex-1 sm:flex-none text-center px-3.5 py-2 bg-stone-900 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                {isHindi ? 'ट्रैक करें' : 'Track'}
+              </button>
+            </div>
+          </section>
+
+          <section className="space-y-3 bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-xs">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+              <h2 className="text-xs uppercase tracking-wider font-semibold text-stone-500">
+                {isHindi ? 'आपकी सक्रिय फसलें' : 'Your active produce'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                className="text-xs font-semibold text-[#0E3B2B] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'नई फसल' : 'Add produce'}</span>
+              </button>
+            </div>
+
+            <div className="divide-y divide-stone-100">
+              {myProduce.length > 0 ? (
+                myProduce.map((item) => (
+                  <div key={item.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-stone-900">{item.name}</div>
+                      <div className="text-xs text-stone-500 mt-0.5">{item.quantity} kg · {item.location}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-mono font-semibold text-stone-900">
+                        ₹{item.pricePerKg}/kg
+                      </div>
+                      <div className="text-[11px] text-emerald-700 font-medium mt-0.5 flex items-center gap-1 justify-end">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                        <span>{isHindi ? 'मंडी में लाइव' : 'Live on Market'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center text-xs text-stone-400">
+                  {isHindi ? 'कोई फसल उपलब्ध नहीं है।' : 'No produce listed yet.'}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTab === 'produce' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
+                {isHindi ? 'फसल सूची और प्रबंधन' : 'Produce Listings'}
+              </h1>
+              <p className="text-xs text-stone-500 mt-0.5">
+                {isHindi ? 'सीधे थोक खरीदारों को उपलब्ध अपनी फसलें देखें' : 'Manage your crops available for direct buyer orders'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-3 py-2 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{isHindi ? 'जोड़ें' : 'Add'}</span>
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xs divide-y divide-stone-100 overflow-hidden">
+            {myProduce.map((p) => (
+              <div key={p.id} className="p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-stone-900 text-sm sm:text-base">{p.name}</div>
+                  <div className="text-xs text-stone-500 mt-0.5">
+                    {p.quantity} kg · {p.quality}
+                  </div>
+                  <div className="text-[11px] text-stone-400 mt-0.5">
+                    {p.location} · {p.harvestDate}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-stone-900 text-base">₹{p.pricePerKg}/kg</div>
+                  <div className="text-xs text-emerald-700 font-medium mt-0.5">
+                    {isHindi ? 'सक्रिय' : 'Active'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'orders' && (
+        <div className="space-y-6">
+          <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+            <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
+              {isHindi ? 'आने वाले और सक्रिय ऑर्डर' : 'Incoming & Active Orders'}
+            </h1>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {isHindi ? 'सीधे बैंक खाते में सुरक्षित भुगतान' : 'Dispatches and buyer settlements directly to your bank account'}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xs divide-y divide-stone-100 overflow-hidden">
+            {myOrders.length > 0 ? (
+              myOrders.map((o) => (
+                <div key={o.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-stone-400 font-mono">{o.id} · {o.orderDate}</div>
+                    <div className="text-sm sm:text-base font-semibold text-stone-900 mt-0.5">
+                      {o.quantity} kg {o.productName}
+                    </div>
+                    <div className="text-xs text-stone-500 mt-0.5">
+                      {isHindi ? 'खरीदार:' : 'Buyer:'} <span className="text-stone-800 font-medium">{o.buyerName}</span> · {o.deliveryLocation}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-50">
+                    <div className="text-left sm:text-right">
+                      <div className="text-base font-mono font-bold text-stone-900">
+                        ₹{o.totalPrice.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-xs text-emerald-700 font-semibold mt-0.5">
+                        {o.status}
+                      </div>
+                    </div>
+
+                    {o.status === 'Confirmed' && (
+                      <button
+                        type="button"
+                        onClick={() => updateOrderStatus(o.id, 'In Transit')}
+                        className="px-3.5 py-2 bg-[#0E3B2B] text-white text-xs font-semibold rounded-xl cursor-pointer"
+                      >
+                        {isHindi ? 'डिस्पैच करें' : 'Dispatch'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-xs text-stone-400">
+                {isHindi ? 'कोई नया ऑर्डर नहीं है।' : 'No orders pending.'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'market' && (
+        <div className="space-y-6">
+          <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+            <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
+              {isHindi ? 'मंडी भाव और तुलना' : 'Market Prices & Transparency'}
+            </h1>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {isHindi ? 'बिचौलियों के बिना सीधे दाम की तुलना' : 'Direct realization comparison versus traditional APMC Mandi channels'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="p-4 rounded-2xl border border-stone-200 bg-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <span className="font-semibold text-stone-900">{isHindi ? 'टमाटर' : 'Tomato'}</span>
+                <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                  {isHindi ? 'किसान +₹6/kg · खरीदार -₹5/kg' : 'Farmer +₹6/kg · Buyer -₹5/kg'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-stone-400 uppercase font-semibold text-[10px]">
+                    {isHindi ? 'पारंपरिक मंडी' : 'Traditional Mandi'}
+                  </div>
+                  <div className="text-stone-700 mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹18/kg</div>
+                  <div className="text-stone-700">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹32/kg</div>
+                </div>
+                <div>
+                  <div className="text-emerald-800 uppercase font-semibold text-[10px]">FarmDirect</div>
+                  <div className="text-stone-900 font-semibold mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹24/kg</div>
+                  <div className="text-stone-900 font-semibold">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹27/kg</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-stone-200 bg-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <span className="font-semibold text-stone-900">{isHindi ? 'आलू' : 'Potato'}</span>
+                <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                  {isHindi ? 'किसान +₹4/kg · खरीदार -₹3/kg' : 'Farmer +₹4/kg · Buyer -₹3/kg'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-stone-400 uppercase font-semibold text-[10px]">
+                    {isHindi ? 'पारंपरिक मंडी' : 'Traditional Mandi'}
+                  </div>
+                  <div className="text-stone-700 mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹14/kg</div>
+                  <div className="text-stone-700">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹22/kg</div>
+                </div>
+                <div>
+                  <div className="text-emerald-800 uppercase font-semibold text-[10px]">FarmDirect</div>
+                  <div className="text-stone-900 font-semibold mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹18/kg</div>
+                  <div className="text-stone-900 font-semibold">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹19/kg</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-stone-200 bg-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <span className="font-semibold text-stone-900">{isHindi ? 'प्याज' : 'Onion'}</span>
+                <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                  {isHindi ? 'किसान +₹5/kg · खरीदार -₹4/kg' : 'Farmer +₹5/kg · Buyer -₹4/kg'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-stone-400 uppercase font-semibold text-[10px]">
+                    {isHindi ? 'पारंपरिक मंडी' : 'Traditional Mandi'}
+                  </div>
+                  <div className="text-stone-700 mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹22/kg</div>
+                  <div className="text-stone-700">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹35/kg</div>
+                </div>
+                <div>
+                  <div className="text-emerald-800 uppercase font-semibold text-[10px]">FarmDirect</div>
+                  <div className="text-stone-900 font-semibold mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹27/kg</div>
+                  <div className="text-stone-900 font-semibold">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹31/kg</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-stone-200 bg-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <span className="font-semibold text-stone-900">{isHindi ? 'गेहूं (शरबती)' : 'Wheat (Sharbati)'}</span>
+                <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                  {isHindi ? 'किसान +₹5/kg · खरीदार -₹4/kg' : 'Farmer +₹5/kg · Buyer -₹4/kg'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-stone-400 uppercase font-semibold text-[10px]">
+                    {isHindi ? 'पारंपरिक मंडी' : 'Traditional Mandi'}
+                  </div>
+                  <div className="text-stone-700 mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹26/kg</div>
+                  <div className="text-stone-700">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹40/kg</div>
+                </div>
+                <div>
+                  <div className="text-emerald-800 uppercase font-semibold text-[10px]">FarmDirect</div>
+                  <div className="text-stone-900 font-semibold mt-1">{isHindi ? 'किसान:' : 'Farmer:'} ₹31/kg</div>
+                  <div className="text-stone-900 font-semibold">{isHindi ? 'उपभोक्ता:' : 'Consumer:'} ₹36/kg</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <h2 className="text-lg font-semibold text-stone-900 font-serif">
+                  {isHindi ? 'फसल लिस्ट करें' : 'List Your Harvest'}
+                </h2>
+                <p className="text-xs text-stone-500">
+                  {isHindi ? 'सीधे खरीदारों को उपलब्ध कराएं' : 'Direct wholesale buyer visibility'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-stone-700">
+                {isHindi ? 'त्वरित फसल चयन (1-टैप):' : 'Quick Crop Presets (1-tap):'}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {cropPresets.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      setCropName(preset.name);
+                      setPricePerKg(preset.price);
+                      setCategory(preset.cat);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
+                      cropName === preset.name
+                        ? 'bg-[#0E3B2B] text-white border-[#0E3B2B]'
+                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                    }`}
+                  >
+                    {preset.label} (₹{preset.price})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleAddSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  {isHindi ? 'फसल का नाम' : 'Crop Name'}
+                </label>
+                <input
+                  type="text"
+                  value={cropName}
+                  onChange={(e) => setCropName(e.target.value)}
+                  required
+                  className="w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#0E3B2B]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-stone-700">
+                    {isHindi ? 'फार्म स्थान (GPS ट्रैकिंग)' : 'Farm Location (GPS)'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleDetectLocation}
+                    disabled={isLocating}
+                    className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    <span>{isLocating ? (isHindi ? 'खोज रहा है...' : 'Detecting...') : (isHindi ? 'GPS से पहचानें' : 'Detect GPS')}</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800">
+                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">{farmLocation}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    {isHindi ? 'मात्रा (kg)' : 'Quantity (kg)'}
+                  </label>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(20, q - 50))}
+                      className="px-2.5 py-2 border border-r-0 border-stone-200 bg-stone-50 rounded-l-xl text-stone-700 font-bold text-sm cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Number(e.target.value))}
+                      required
+                      min={10}
+                      className="w-full text-center py-2 border-y border-stone-200 text-sm focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => q + 50)}
+                      className="px-2.5 py-2 border border-l-0 border-stone-200 bg-stone-50 rounded-r-xl text-stone-700 font-bold text-sm cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    {isHindi ? 'दर (₹/kg)' : 'Price (₹/kg)'}
+                  </label>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setPricePerKg((p) => Math.max(1, p - 2))}
+                      className="px-2.5 py-2 border border-r-0 border-stone-200 bg-stone-50 rounded-l-xl text-stone-700 font-bold text-sm cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={pricePerKg}
+                      onChange={(e) => setPricePerKg(Number(e.target.value))}
+                      required
+                      min={1}
+                      className="w-full text-center py-2 border-y border-stone-200 text-sm focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPricePerKg((p) => p + 2)}
+                      className="px-2.5 py-2 border border-l-0 border-stone-200 bg-stone-50 rounded-r-xl text-stone-700 font-bold text-sm cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[#0E3B2B] hover:bg-[#144E39] text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  {isHindi ? 'पुष्टि करें और मंडी में लिस्ट करें' : 'Confirm & List on Marketplace'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isTrackModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <h2 className="text-base font-semibold text-stone-900 font-serif">
+                  {isHindi ? 'पिकअप और कोल्ड-चेन वाहन' : 'Pickup & Reefer Status'}
+                </h2>
+                <p className="text-xs text-stone-500">DL-1L-4482 · Tata Ultra Cold Reefer</p>
+              </div>
+              <button 
+                onClick={() => setIsTrackModalOpen(false)}
+                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-stone-50 rounded-xl space-y-1">
+                <div className="font-semibold text-stone-900">Driver: Manpreet Singh</div>
+                <div className="text-stone-500">Contact: +91 98112 34567</div>
+                <div className="text-emerald-700 font-medium">Reefer Temp: 4°C · On Time</div>
+              </div>
+
+              <div className="space-y-3 pl-2 border-l-2 border-emerald-700 py-1">
+                <div className="relative pl-3">
+                  <div className="text-xs font-semibold text-stone-900">Agra Farm Cluster Pickup</div>
+                  <div className="text-[11px] text-stone-500">Scheduled: Today · 11:30 AM</div>
+                </div>
+                <div className="relative pl-3">
+                  <div className="text-xs font-semibold text-stone-700">Mathura Consolidation Hub</div>
+                  <div className="text-[11px] text-stone-400">Estimated: 1:15 PM</div>
+                </div>
+                <div className="relative pl-3">
+                  <div className="text-xs font-semibold text-stone-700">Delhi Azadpur Terminal</div>
+                  <div className="text-[11px] text-stone-400">Estimated: 4:30 PM</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <a
+                href="tel:+919811234567"
+                className="flex-1 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl text-center flex items-center justify-center gap-1.5"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'ड्राइवर को कॉल' : 'Call Driver'}</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setIsTrackModalOpen(false)}
+                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                {isHindi ? 'बंद करें' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
