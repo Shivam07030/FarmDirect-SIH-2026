@@ -24,10 +24,10 @@ export const OrdersView: React.FC = () => {
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab === 'buyer') {
-      const isMyBuyerOrder = order.buyerName.toLowerCase().includes('freshbasket') || order.buyerName.toLowerCase().includes('buyer');
+      const isMyBuyerOrder = (order.buyerName || '').toLowerCase().includes('freshbasket') || (order.buyerName || '').toLowerCase().includes('buyer');
       if (!isMyBuyerOrder && role === 'BUYER') return false;
     } else if (activeTab === 'farmer') {
-      const isMyFarmerOrder = order.farmerName.toLowerCase().includes('rajesh') || order.farmerName.toLowerCase().includes('you');
+      const isMyFarmerOrder = (order.farmerName || '').toLowerCase().includes('rajesh') || (order.farmerName || '').toLowerCase().includes('you');
       if (!isMyFarmerOrder && role === 'FARMER') return false;
     }
 

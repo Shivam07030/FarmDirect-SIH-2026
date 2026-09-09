@@ -76,12 +76,12 @@ export const Navbar: React.FC = () => {
 
   const getDisplayName = () => {
     if (role === 'FARMER') return `${farmerName} · Farmer`;
-    if (role === 'BUYER') return 'FreshBasket · Buyer';
+    if (role === 'BUYER') return `${buyerName || 'Buyer'} · Buyer`;
     return 'FarmDirect Admin';
   };
 
   const pendingFarmerOrders = orders.filter(
-    (o) => (o.farmerName.toLowerCase().includes('rajesh') || o.farmerName.toLowerCase().includes('you')) && o.status === 'Confirmed'
+    (o) => (((o.farmerName || '').toLowerCase().includes('rajesh') || (o.farmerName || '').toLowerCase().includes('you')) && o.status === 'Confirmed')
   ).length;
 
   return (

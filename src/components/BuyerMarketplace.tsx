@@ -91,13 +91,13 @@ export const BuyerMarketplace: React.FC = () => {
     .filter((p) => {
       const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
       const matchQual = selectedQuality === 'All' || p.quality === selectedQuality;
-      const q = searchQuery.toLowerCase().trim();
+      const q = (searchQuery || '').toLowerCase().trim();
       const matchQuery = 
         !q ||
-        p.name.toLowerCase().includes(q) ||
+        (p.name || '').toLowerCase().includes(q) ||
         (p.variety && p.variety.toLowerCase().includes(q)) ||
-        p.farmerName.toLowerCase().includes(q) ||
-        p.location.toLowerCase().includes(q);
+        (p.farmerName || '').toLowerCase().includes(q) ||
+        (p.location || '').toLowerCase().includes(q);
       return matchCat && matchQual && matchQuery;
     })
     .sort((a, b) => {
@@ -176,8 +176,8 @@ export const BuyerMarketplace: React.FC = () => {
 
     // 2. Match current logged-in buyer user
     if (currentUser?.name && currentUser.name !== 'Farmer') {
-      const uName = currentUser.name.toLowerCase();
-      if (o.buyerName.toLowerCase().includes(uName)) return true;
+      const uName = (currentUser.name || '').toLowerCase();
+      if ((o.buyerName || '').toLowerCase().includes(uName)) return true;
     }
 
     // 3. Match common buyer defaults and direct household purchases
@@ -198,12 +198,12 @@ export const BuyerMarketplace: React.FC = () => {
   });
 
   const filteredMyOrders = myOrders.filter((ord) => {
-    const q = orderSearchQuery.toLowerCase().trim();
+    const q = (orderSearchQuery || '').toLowerCase().trim();
     const matchQ =
       !q ||
-      ord.id.toLowerCase().includes(q) ||
-      ord.productName.toLowerCase().includes(q) ||
-      ord.farmerName.toLowerCase().includes(q);
+      (ord.id || '').toLowerCase().includes(q) ||
+      (ord.productName || '').toLowerCase().includes(q) ||
+      (ord.farmerName || '').toLowerCase().includes(q);
 
     let matchStatus = true;
     if (orderStatusFilter === 'UNRATED') {

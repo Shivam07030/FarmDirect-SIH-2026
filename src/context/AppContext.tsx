@@ -797,8 +797,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Farmer metrics (calculated for dynamic farmer or demo)
     const currentFarmerToken = (farmerName || 'rajesh').toLowerCase().split(' ')[0];
-    const farmerProducts = products.filter((p) => p.farmerName.toLowerCase().includes(currentFarmerToken) || p.farmerName.toLowerCase().includes('rajesh'));
-    const farmerOrders = orders.filter((o) => o.farmerName.toLowerCase().includes(currentFarmerToken) || o.farmerName.toLowerCase().includes('rajesh'));
+    const farmerProducts = products.filter((p) => (p.farmerName || '').toLowerCase().includes(currentFarmerToken) || (p.farmerName || '').toLowerCase().includes('rajesh'));
+    const farmerOrders = orders.filter((o) => (o.farmerName || '').toLowerCase().includes(currentFarmerToken) || (o.farmerName || '').toLowerCase().includes('rajesh'));
 
     const totalProduceListedKg = farmerProducts.reduce((acc, p) => acc + p.quantity, 0);
     const activeOrdersCount = farmerOrders.filter((o) => o.status !== 'Delivered').length;
