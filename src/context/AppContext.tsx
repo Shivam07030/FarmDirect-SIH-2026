@@ -488,6 +488,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const setRole = (newRole: UserRole) => {
         setRoleState(newRole);
+        localStorage.setItem(STORAGE_ROLE_KEY, newRole);
+        if (currentUser) {
+            const updated = { ...currentUser, role: newRole };
+            setCurrentUser(updated);
+            localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(updated));
+        }
         if (newRole === 'FARMER') setCurrentView('farmer');
         else if (newRole === 'BUYER') setCurrentView('marketplace');
         else if (newRole === 'ADMIN') setCurrentView('admin');

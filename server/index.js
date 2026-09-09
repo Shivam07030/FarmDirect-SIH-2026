@@ -1003,6 +1003,12 @@ app.post('/api/auth/verify-otp', async (req, res) => {
             const [newUserRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
             user = newUserRows[0];
         } else {
+            // Allow dual-role flexibility: if an existing user logs in choosing a specific role (e.g. FARMER or BUYER)
+            if (role && (role === 'FARMER' || role === 'BUYER' || role === 'ADMIN') && user.role !== role) {
+                await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, user.id]);
+                user.role = role;
+            }
+
             // Existing user: update any new KYC fields if provided during registration/update flow
             if (hasRegistrationData) {
                 await pool.query(

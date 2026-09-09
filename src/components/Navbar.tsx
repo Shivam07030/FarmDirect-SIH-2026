@@ -181,7 +181,7 @@ export const Navbar: React.FC = () => {
                           role === 'FARMER' ? 'text-[#0E3B2B] font-bold bg-emerald-50/40' : 'text-stone-700'
                         }`}
                       >
-                        <span>Farmer (Rajesh)</span>
+                        <span>Farmer {currentUser?.name ? `(${currentUser.name.split(' ')[0]})` : '(Cultivator)'}</span>
                         {role === 'FARMER' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
                       </button>
                       <button
@@ -194,7 +194,7 @@ export const Navbar: React.FC = () => {
                           role === 'BUYER' ? 'text-[#0E3B2B] font-bold bg-emerald-50/40' : 'text-stone-700'
                         }`}
                       >
-                        <span>Buyer (FreshBasket)</span>
+                        <span>Buyer {currentUser?.name ? `(${currentUser.name.split(' ')[0]})` : '(Marketplace)'}</span>
                         {role === 'BUYER' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
                       </button>
                       <button

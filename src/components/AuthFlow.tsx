@@ -160,8 +160,9 @@ export const AuthFlow: React.FC = () => {
                     return;
                 }
                 if (!res.isNewUser && res.user) {
-                    // Existing user detected in database: log in immediately with all KYC records!
-                    loginAs(res.user.role || selectedRole, res.user);
+                    // Always honor the role the user selected on the login screen!
+                    const targetRole = selectedRole || res.user.role;
+                    loginAs(targetRole, { ...res.user, role: targetRole });
                 } else {
                     // New user: proceed to KYC onboarding form
                     setStep('kyc-onboarding');
