@@ -86,3 +86,17 @@ Test directly on [http://169.58.5.209:3000](http://169.58.5.209:3000) using **OT
 ## How to access machien 
 ## ssh root@169.58.5.209
 ## Password: Ajay2026
+
+
+## need to deploy dev code to the server
+## just login to the machine and run the script './deploy.sh'
+
+
+## How to push the code to specfic branch
+
+# 1. check the current branch 'git branch'
+# Always make sure to have latest pull of current branch to avoid conflits
+# 2. if ned to change to any specfic branch run this cammand 'git checkout BRANCH_NAME'
+# 3. Now add specfic or desired file to push to to respository 'git add file with relative path'
+# 4. Now commit the code 'git commit -m "your comment"'
+# 5. final push the code 'git push origin BRANCH_NAME' 
