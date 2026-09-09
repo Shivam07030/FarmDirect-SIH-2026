@@ -27,6 +27,7 @@ export const Navbar: React.FC = () => {
     logout, 
     farmerName, 
     buyerName,
+    currentUser,
     orders,
     language,
     setLanguage

@@ -1150,7 +1150,7 @@ export const BuyerMarketplace: React.FC = () => {
 
       {/* Produce & Delivery Rating & Review Modal */}
       <RatingModal
-        isOpen={isRatingOpen}
+        isOpen={isRatingModalOpen}
         onClose={() => {
           setIsRatingModalOpen(false);
           setSelectedRatingOrder(null);
