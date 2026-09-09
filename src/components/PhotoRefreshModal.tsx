@@ -14,6 +14,7 @@ import {
 import { Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { getProduceFreshnessInfo } from '../utils/freshnessSla';
+import { LiveCameraModal } from './LiveCameraModal';
 
 interface PhotoRefreshModalProps {
   product: Product | null;
@@ -47,6 +48,7 @@ export const PhotoRefreshModal: React.FC<PhotoRefreshModalProps> = ({
 }) => {
   const { refreshProductPhoto, marketRules } = useApp();
   const [selectedPhoto, setSelectedPhoto] = useState<string>('');
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -183,6 +185,29 @@ export const PhotoRefreshModal: React.FC<PhotoRefreshModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Direct Camera Capture & Gallery Selection */}
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setIsLiveCameraOpen(true)}
+                className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Snap with Camera</span>
+              </button>
+
+              <label className="py-2.5 px-3 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center">
+                <Upload className="w-4 h-4" />
+                <span>Choose from Gallery</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
 
           {/* Fast Presets for Quick Demo */}
@@ -267,6 +292,17 @@ export const PhotoRefreshModal: React.FC<PhotoRefreshModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Live Produce Camera Modal */}
+      <LiveCameraModal
+        isOpen={isLiveCameraOpen}
+        onClose={() => setIsLiveCameraOpen(false)}
+        onPhotoCaptured={(dataUrl) => {
+          setSelectedPhoto(dataUrl);
+          setIsLiveCameraOpen(false);
+        }}
+        cropNameHint={product.name}
+      />
     </div>
   );
 };

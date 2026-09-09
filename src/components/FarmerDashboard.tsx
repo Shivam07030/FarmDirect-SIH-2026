@@ -29,7 +29,8 @@ import {
   Award,
   Lock,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 import { getCurrentCoordinates } from '../services/locationService';
 import { captureProducePhoto } from '../services/cameraService';
@@ -43,6 +44,7 @@ import { ProduceScanResult } from '../services/aiVisionService';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { MandiArbitrageMatrix } from './MandiArbitrageMatrix';
 import { PhotoRefreshModal } from './PhotoRefreshModal';
+import { LiveCameraModal } from './LiveCameraModal';
 import { getProduceFreshnessInfo } from '../utils/freshnessSla';
 import { Order, Product } from '../types';
 
@@ -73,6 +75,7 @@ export const FarmerDashboard: React.FC = () => {
   // 4 Showstopper Features State
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
   const [isPassportModalOpen, setIsPassportModalOpen] = useState(false);
   const [selectedPassportProduct, setSelectedPassportProduct] = useState<Product | null>(null);
   const [selectedPassportOrder, setSelectedPassportOrder] = useState<Order | null>(null);
@@ -1413,28 +1416,36 @@ export const FarmerDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Primary Direct Live Camera Capture Button */}
                     <button
                       type="button"
-                      onClick={() => setIsAiScannerOpen(true)}
-                      className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-800 to-[#0E3B2B] hover:from-emerald-700 hover:to-[#144E39] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                      onClick={() => setIsLiveCameraOpen(true)}
+                      className="w-full py-3 px-3.5 bg-gradient-to-r from-emerald-800 to-[#0E3B2B] hover:from-emerald-700 hover:to-[#144E39] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4 text-emerald-300" />
-                      <span>{isHindi ? 'AI कंप्यूटर विजन से गुणवत्ता स्कैन करें (APEDA/AGMARK)' : 'Scan Produce with AI Computer Vision (APEDA Grade)'}</span>
+                      <CameraIcon className="w-4 h-4 text-emerald-300" />
+                      <span>{isHindi ? 'सीधे कैमरे से फोटो खींचें (Live Camera)' : 'Take Photo Directly with Camera'}</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={handleCapturePhoto}
-                      disabled={isCapturingPhoto}
-                      className="w-full py-2.5 px-3 border border-dashed border-stone-300 hover:border-emerald-600 rounded-xl text-xs font-medium text-stone-600 hover:text-emerald-800 flex items-center justify-center gap-2 bg-stone-50 transition-colors cursor-pointer"
-                    >
-                      <CameraIcon className="w-4 h-4 text-emerald-700" />
-                      <span>
-                        {isCapturingPhoto
-                          ? (isHindi ? 'कैमरा / फ़ाइल चयनकर्ता खुल रहा है...' : 'Opening Camera / Photo Picker...')
-                          : (isHindi ? 'कैमरा से फोटो खींचें / अपलोड करें' : 'Take Crop Photo with Camera / Upload')}
-                      </span>
-                    </button>
+                    {/* Secondary Actions: Gallery Upload & AI Computer Vision Scan */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="py-2.5 px-2.5 border border-stone-200 hover:border-stone-300 bg-stone-50 hover:bg-stone-100 rounded-xl text-[11px] font-semibold text-stone-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-stone-500" />
+                        <span>{isHindi ? 'गैलरी से अपलोड' : 'Upload from Gallery'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAiScannerOpen(true)}
+                        className="py-2.5 px-2.5 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-[11px] font-semibold text-emerald-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{isHindi ? 'AI ग्रेड स्कैनर' : 'Scan with AI'}</span>
+                      </button>
+                    </div>
 
                     {scannedQualityGrade && (
                       <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs mt-2">
@@ -1894,6 +1905,18 @@ export const FarmerDashboard: React.FC = () => {
           setSelectedRefreshProduct(null);
         }}
         product={selectedRefreshProduct}
+      />
+
+      {/* 5. Live Produce Camera Viewfinder Modal */}
+      <LiveCameraModal
+        isOpen={isLiveCameraOpen}
+        onClose={() => setIsLiveCameraOpen(false)}
+        onPhotoCaptured={(dataUrl) => {
+          setProduceImage(dataUrl);
+          setIsLiveCameraOpen(false);
+        }}
+        cropNameHint={cropName || 'Fresh Harvest'}
+        isHindi={isHindi}
       />
 
     </div>

@@ -25,6 +25,7 @@ import {
   SAMPLE_PRODUCE_PHOTOS, 
   SampleProducePhoto 
 } from '../services/aiVisionService';
+import { LiveCameraModal } from './LiveCameraModal';
 
 interface ProduceQualityScannerModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const ProduceQualityScannerModal: React.FC<ProduceQualityScannerModalProp
 
   const [selectedImage, setSelectedImage] = useState<string>(SAMPLE_PRODUCE_PHOTOS[0].imageUrl);
   const [selectedCrop, setSelectedCrop] = useState<string>(cropHint || 'Tomato');
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ProduceScanResult | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -251,6 +253,15 @@ export const ProduceQualityScannerModal: React.FC<ProduceQualityScannerModalProp
             {/* Bottom bar inside photo viewport */}
             <div className="p-3 bg-stone-900 border-t border-stone-800 flex items-center justify-between flex-wrap gap-2 text-xs">
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLiveCameraOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                  <span>{isHindi ? 'सीधा कैमरा' : 'Snap Camera'}</span>
+                </button>
+
                 <input
                   type="file"
                   accept="image/*"
@@ -264,7 +275,7 @@ export const ProduceQualityScannerModal: React.FC<ProduceQualityScannerModalProp
                   className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer border border-stone-700"
                 >
                   <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{isHindi ? 'अपनी फोटो अपलोड करें' : 'Upload Produce Photo'}</span>
+                  <span>{isHindi ? 'गैलरी से अपलोड' : 'Upload Photo'}</span>
                 </button>
               </div>
 
@@ -532,6 +543,19 @@ export const ProduceQualityScannerModal: React.FC<ProduceQualityScannerModalProp
         </div>
 
       </div>
+
+      {/* Live Produce Camera Modal */}
+      <LiveCameraModal
+        isOpen={isLiveCameraOpen}
+        onClose={() => setIsLiveCameraOpen(false)}
+        onPhotoCaptured={(dataUrl) => {
+          setSelectedImage(dataUrl);
+          setIsLiveCameraOpen(false);
+          handleStartScan(dataUrl, selectedCrop);
+        }}
+        cropNameHint={selectedCrop}
+        isHindi={isHindi}
+      />
     </div>
   );
 };
