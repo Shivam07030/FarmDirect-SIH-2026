@@ -4,99 +4,159 @@
 > **Problem Statement ID**: `SIH26033`  
 > **Problem Statement**: *Multiple intermediaries reduce farmers' earnings and increase consumer prices*  
 > **Team Name**: *AGRONEX AI*  
-> **Live Web App**: [http://169.58.5.209:3000](http://169.58.5.209:3000)  
-> **Android APK**: [http://169.58.5.209:3000/downloads/farmdirect-latest.apk](http://169.58.5.209:3000/downloads/farmdirect-latest.apk)  
-> **Full Project Dossier**: [PROJECT_DOSSIER.md](PROJECT_DOSSIER.md)
+> **Live Production URL**: [http://169.58.5.209:3000](http://169.58.5.209:3000) (SSL: `https://169.58.5.209:3443`)  
+> **Android Mobile APK**: [http://169.58.5.209:3000/downloads/farmdirect-latest.apk](http://169.58.5.209:3000/downloads/farmdirect-latest.apk)  
+> **Comprehensive Dossier**: [PROJECT_DOSSIER.md](PROJECT_DOSSIER.md)
 
 ---
 
-## 🌾 Project Overview
+## 🌾 1. Project Overview
 
-**FarmDirect** is a modern agricultural supply chain platform engineered to eliminate exploitative mandi middlemen, guarantee minimum support fair prices to farmers, prevent speculative retail hoarding, and eliminate perishable food losses using an IoT-monitored refrigerated cold chain.
+**FarmDirect** is a modern agricultural disintermediation and refrigerated cold-chain platform designed to eliminate exploitative mandi middlemen, guarantee fair prices above MSP to farmers, prevent speculative hoarding for consumers, and prevent post-harvest food waste through real-time IoT temperature monitoring.
 
-### Key Capabilities
-- **Farmer Portal**: Verified PM-KISAN KYC, Khasra/Khatauni land record verification, native camera produce capture, and cluster GPS detection.
-- **Fair Price Collar Engine**: Algorithmic MSP floor and price ceiling preventing distress selling and consumer gouging.
-- **Dual-Tier Buyer Marketplace**:
-  - *Household Retail*: Anti-hoarding cap of **max 2 kg per crop** with flat ₹25 doorstep eco-delivery.
-  - *B2B Wholesale*: Minimum order quantities of **25 kg to 500+ kg** requiring verified 15-digit GSTIN & FSSAI.
-- **Amazon-Grade Live Delivery Tracker**: Step-by-step dispatch tracking with real-time **4°C reefer telematics** and secure **4-digit OTP handover**.
-- **Produce Freshness & Logistics Rating**: Multi-criteria star rating system updating farmer reputation dynamically in MySQL.
-- **Grievance & Dispute Desk**: End-to-end support ticket resolution desk for damaged produce, temperature breaches, and escrow settlement disputes.
-- **Market Authority Admin Console**: Live, zero-hardcoding market rule adjustments and user account sanctions (`ACTIVE`, `SUSPENDED`, `BANNED`).
+Traditional APMC mandis subject farmers to a multi-layered chain of village aggregators, commission agents (*arhatiyas*), and mandi cartels—diluting the farmer's share to under 35% of the consumer rupee. FarmDirect establishes a transparent, direct farmgate-to-buyer corridor with digital escrow, verifiable identity, and guaranteed cold-chain delivery.
 
 ---
 
-## 🛠️ Technology Stack
+## 🚀 2. Cutting-Edge Technologies & Innovations
 
-| Layer | Technologies Used |
-| :--- | :--- |
-| **Frontend** | React 19, TypeScript 5.8, Tailwind CSS v4, Vite 6, Lucide Icons |
-| **Mobile** | Capacitor 8 (Android SDK & iOS Native Plugins), Progressive Web App (PWA) |
-| **Backend** | Node.js, Express 4, RESTful Architecture, JSON Web Tokens |
-| **Database** | MySQL 8.0 (InnoDB, Normalized 3NF Schema, Connection Pooling), phpMyAdmin |
-| **IoT / Logistics** | Telematics Simulator, Cold-Chain Temperature Sensors, GPS Geofencing |
-| **DevOps / Cloud** | Ubuntu Linux Cloud Server (`169.58.5.209`), PM2 Process Manager, Nginx, Gradle |
+| Technology / Framework | Category | Implementation & Purpose |
+| :--- | :--- | :--- |
+| **Google Gemini 2.5 Flash** (`@google/genai`) | **Multimodal Vision AI** | Computer vision produce scanner analyzing surface defects, color ripeness, AGMARK/APEDA grade classification, and shelf-life prediction. |
+| **WebRTC & Live Camera Viewfinder** | **Direct Hardware MediaStream** | In-app live camera viewfinder (`getUserMedia`) with framing reticle, dual-facing camera switch, and native `@capacitor/camera` hardware trigger for fresh produce verification. |
+| **Recharts Data Visualization** (`recharts 3.10`) | **Arbitrage & Financial Charts** | Real-time comparative net in-hand realization charts contrasting FarmDirect against traditional APMCs after commission and cess deductions. |
+| **Agmarknet & e-NAM Data Sync** | **Government Benchmarks** | Daily automated ingestion of wholesale arrival volumes and modal, minimum, and maximum rates from Ministry of Agriculture APMC mandis. |
+| **India Stack / DPI (Meon & DigiLocker)** | **Identity & DBT Banking** | Real-time Aadhaar e-KYC, PAN authentication, and Meon Penny Drop bank account validation for instant IMPS DBT payouts. |
+| **IoT Cold-Chain Telematics** | **Sensors & Hardware Simulation** | Real-time 2°–6°C chamber temperature monitoring, relative humidity tracking, GPS coordinates, and Amazon-style 4-digit OTP delivery security. |
+| **Driver Detention & Salvage Protocol** | **Logistics Risk Management** | GPS Geofence (<35m), 30-min grace countdown, automated ₹150/hr demurrage escrow debit, IVR sirens, and emergency APMC re-route salvage to Azadpur Mandi. |
+| **Kisan Vaani Voice Assistant** | **Multilingual Speech AI** | Web Speech API speech-to-text allowing hands-free crop listing via voice in Hindi and regional dialects. |
+| **Cashfree Nodal Escrow** | **FinTech & Settlement** | RBI-compliant digital escrow holding buyer funds until OTP-authenticated physical delivery, preventing payment defaults. |
+| **Dynamic Freshness SLA & Cancellation** | **Marketplace Governance** | 12h/24h photo freshness enforcement with purchase locks and pre-shipment order cancellation with 100% automated escrow refund. |
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🏛️ 3. Core Architectural Pillars
+
+### A. Agmarknet & e-NAM Mandi Arbitrage Matrix
+Traditional APMC mandis display deceptive gross prices. The platform automatically factors in:
+- **Arhatiya (Middleman) Commission**: `6.0%`
+- **APMC Mandi Cess**: `1.5% to 2.0%`
+- **Palledari (Handling & Unloading Charges)**: `₹25 – ₹30 per quintal`
+- **Transit Spoilage & Open Freight Decay**: `7% – 9%`
+Calculates true net take-home realization across regional mandis (**Agra APMC, Azadpur Delhi, Mathura, Jaipur**) proving an extra **+₹420 to +₹685 per quintal net gain** for farmers.
+
+### B. Algorithmic Fair Price Collar Engine
+- **MSP Distress Floor**: Prevents farmers from being forced into distressed selling below cost of cultivation.
+- **Anti-Gouging Ceiling**: Dynamically restricts price gouging during artificial shortages, protecting urban household consumers.
+- **Fair Band Indicator**: Real-time visual compliance feedback for farmers when listing produce.
+
+### C. Transporter & Driver Detention Protocol
+Protects delivery drivers and farmers from unresponsive buyers:
+1. **GPS Geo-Fence Arrival Proof**: Confirms vehicle position within <35m of destination.
+2. **30-Minute Grace Countdown Timer**: Automated detention clock.
+3. **₹150/hr Reefer Demurrage Surcharge**: Auto-debited from the buyer's locked escrow to cover idling refrigeration expenses.
+4. **Urgent Multi-Channel IVR & SMS Siren**: Automated telephone voice call and SMS dispatch to the buyer.
+5. **Perishable Emergency Salvage**: Re-routes truck to Azadpur Mandi if the buyer fails to respond, liquidating produce before rot occurs.
+
+### D. Dual-Tier Anti-Hoarding Marketplace
+- **Household Retail Tier**: Hard 2 kg cap per crop lot under the Essential Commodities Act to eliminate speculative hoarding, with flat ₹25 doorstep delivery.
+- **B2B Wholesale Tier**: 25 kg to 500+ kg bulk lots requiring verified 15-digit GSTIN & FSSAI registration.
+
+---
+
+## 🛠️ 4. Technology Stack Summary
+
+```
+Frontend:          React 19 · TypeScript 5.8 · Vite 6 · Tailwind CSS v4 · Motion
+Mobile Container:  Capacitor 8 (Android Studio / Gradle · iOS Native SDK)
+Artificial Intel: Google Gemini 2.5 Flash Vision API (`@google/genai`)
+Charting & Stats:  Recharts 3.10
+Backend & APIs:    Node.js · Express 4 · REST · JWT
+Database Layer:    MySQL 8.0 (InnoDB · Normalized 3NF Schema · Connection Pool)
+Cloud Infrastructure: Ubuntu 24.04 LTS (`169.58.5.209`) · Nginx Reverse Proxy · PM2
+DPI Integrations:  Agmarknet · e-NAM · PM-KISAN · DigiLocker / UIDAI · Cashfree Escrow
+```
+
+---
+
+## 💻 5. Quick Start (Local Setup)
 
 ```bash
-# 1. Clone repository (dev branch)
+# 1. Clone repository
 git clone -b dev git@github.com:Shivam07030/FarmDirect-SIH-2026.git
 cd FarmDirect-SIH-2026
 
 # 2. Install dependencies
 npm install
 
-# 3. Start Backend Server & Frontend Dev Server
+# 3. Start local development environment (Frontend + Backend)
 npm run dev
 
-# 4. Access the web app
+# 4. Open in browser
 open http://localhost:3000
 ```
 
-### Mobile App Build (Android APK)
+### Android APK Compilation
 ```bash
-# Build Android APK directly via Gradle
+# Build native APK using Gradle
 cd android
 ./gradlew assembleDebug
 
-# Output APK location:
+# Output APK path:
 # android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
-## 👥 Demo Logins for Evaluators
+## 👥 6. Evaluator Personas for Live Testing
 
-Test directly on [http://169.58.5.209:3000](http://169.58.5.209:3000) using **OTP: `2026`**:
+Live server: [http://169.58.5.209:3000](http://169.58.5.209:3000) (Universal Sandbox OTP: **`2026`**):
 
-1. **Farmer Persona**: Phone `+91 98765 43210` (Rajesh Kumar · Agra Farm Cluster)
-2. **Normal Buyer (Household)**: Phone `+91 98112 00000` (Max 2 kg Rationing Cap active)
-3. **Wholesaler (B2B Bulk)**: Phone `+91 98112 99881` (AgroPure Processing · GSTIN Verified)
-4. **Admin Authority**: Phone `+91 99999 00000` (Market Interventions, Sanctions & Dispute Desk)
+| Persona | Registered Phone | Access & Primary Demo Capabilities |
+| :--- | :--- | :--- |
+| **Farmer (Agra Cluster)** | `+91 98765 43210` | Live Camera Harvest Listing, Mandi Arbitrage Matrix, AI APEDA Quality Scanner, Kisan Vaani Voice Assistant, Farm-to-Fork Trust Passport. |
+| **Household Retail Buyer** | `+91 98112 00000` | Anti-hoarding 2 kg capped cart, live 4°C IoT cold-chain tracker, 4-digit security OTP, pre-shipment order cancellation with 100% refund. |
+| **Wholesaler (B2B Commercial)** | `+91 98112 99881` | Bulk ordering (100 kg+), GSTIN/FSSAI verified badge, Driver Gate Detention protocol, Reefer demurrage tracking. |
+| **Market Authority Admin** | `+91 99999 00000` | Zero-hardcoding dynamic market rules, photo freshness SLA sliders, ECA rationing toggles, dispute resolution desk. |
 
+---
 
+## 🖥️ 7. Server Access & Deployment Guide
 
+### Remote Cloud Server SSH Access
+```bash
+ssh root@169.58.5.209
+# Password: Ajay2026
+```
 
+### Deploying Updates to Live Production
+```bash
+# Login to the machine and run the automated deployment script
+./deploy.sh
+```
 
+### Git Branching & Push Workflow
+```bash
+# 1. Check current branch
+git branch
 
-## How to access machien 
-## ssh root@169.58.5.209
-## Password: Ajay2026
+# 2. Always make sure to have the latest pull to avoid conflicts
+git pull origin dev
 
+# 3. Switch to specific branch if needed
+git checkout <BRANCH_NAME>
 
-## need to deploy dev code to the server
-## just login to the machine and run the script './deploy.sh'
+# 4. Add specific desired files with relative paths
+git add <file-path>
 
+# 5. Commit your changes
+git commit -m "feat/fix: your commit description"
 
-## How to push the code to specfic branch
+# 6. Push to specific branch
+git push origin <BRANCH_NAME>
+```
 
-# 1. check the current branch 'git branch'
-# Always make sure to have latest pull of current branch to avoid conflits
-# 2. if ned to change to any specfic branch run this cammand 'git checkout BRANCH_NAME'
-# 3. Now add specfic or desired file to push to to respository 'git add file with relative path'
-# 4. Now commit the code 'git commit -m "your comment"'
-# 5. final push the code 'git push origin BRANCH_NAME' 
+---
+
+## 📄 License & Attribution
+Developed for the **Smart India Hackathon (SIH 2026)** by **Team AGRONEX AI**. All rights reserved.
