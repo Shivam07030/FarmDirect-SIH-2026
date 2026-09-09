@@ -77,3 +77,12 @@ Test directly on [http://169.58.5.209:3000](http://169.58.5.209:3000) using **OT
 2. **Normal Buyer (Household)**: Phone `+91 98112 00000` (Max 2 kg Rationing Cap active)
 3. **Wholesaler (B2B Bulk)**: Phone `+91 98112 99881` (AgroPure Processing · GSTIN Verified)
 4. **Admin Authority**: Phone `+91 99999 00000` (Market Interventions, Sanctions & Dispute Desk)
+
+
+
+
+
+
+## How to access machien 
+## ssh root@169.58.5.209
+## Password: Ajay2026
