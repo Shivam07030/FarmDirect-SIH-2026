@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .gradle/
 DerivedData/
+*.pptx
+*.ppt
+scratch/

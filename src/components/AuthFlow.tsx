@@ -24,7 +24,7 @@ import { sendOtp, verifyOtp, verifyGstApi, verifyFarmerLandApi, verifyBankIfscAp
 import { getCurrentCoordinates } from '../services/locationService';
 
 export const AuthFlow: React.FC = () => {
-    const { loginAs, setBuyerTier } = useApp();
+    const { loginAs, setBuyerTier, buyerTier } = useApp();
     const [step, setStep] = useState<'select-role' | 'enter-phone' | 'enter-otp' | 'kyc-onboarding'>('select-role');
     const [selectedRole, setSelectedRole] = useState<UserRole>('FARMER');
 
@@ -33,6 +33,10 @@ export const AuthFlow: React.FC = () => {
     const [otpSentMessage, setOtpSentMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    // Retail Household Buyer state (Zero GST/FSSAI)
+    const [retailBuyerName, setRetailBuyerName] = useState('');
+    const [retailDeliveryAddress, setRetailDeliveryAddress] = useState('');
 
     // Farmer KYC state
     const [farmerName, setFarmerName] = useState('');
@@ -394,6 +398,35 @@ export const AuthFlow: React.FC = () => {
             });
             if (res.success && res.user) {
                 loginAs('FARMER', res.user);
+            } else {
+                setErrorMessage(res.error || 'Failed to complete registration.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRetailBuyerSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!retailBuyerName.trim()) {
+            setErrorMessage('Please enter your Name');
+            return;
+        }
+        setLoading(true);
+        setErrorMessage('');
+        try {
+            const res = await verifyOtp(phone, otp, 'BUYER', retailBuyerName, {
+                isRegistration: true,
+                location: retailDeliveryAddress || 'Delhi NCR',
+            });
+            if (res.success && res.user) {
+                setBuyerTier('RETAIL');
+                loginAs('BUYER', { 
+                    ...res.user, 
+                    name: retailBuyerName, 
+                    location: retailDeliveryAddress || 'Delhi NCR',
+                    buyerTier: 'RETAIL' 
+                });
             } else {
                 setErrorMessage(res.error || 'Failed to complete registration.');
             }
@@ -1122,7 +1155,101 @@ export const AuthFlow: React.FC = () => {
                     </div>
                 )}
 
-                {step === 'kyc-onboarding' && selectedRole === 'BUYER' && (
+                {/* Normal Household Retail Buyer Onboarding (Zero GST / Zero FSSAI) */}
+                {step === 'kyc-onboarding' && selectedRole === 'BUYER' && buyerTier === 'RETAIL' && (
+                    <div className="space-y-6">
+                        <button
+                            type="button"
+                            onClick={() => setStep('enter-otp')}
+                            className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 transition-colors cursor-pointer"
+                        >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            <span>Back</span>
+                        </button>
+
+                        <div className="space-y-1">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-200">
+                                <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Household Retail · Zero GST / No Business License Required</span>
+                            </div>
+                            <h1 className="text-2xl font-semibold text-stone-900 font-serif">
+                                Household Buyer Profile
+                            </h1>
+                            <p className="text-xs text-stone-500">
+                                Household buyers purchasing for family consumption do not need GSTIN, FSSAI, or commercial licenses. Anti-hoarding limits ensure a fair 2 kg cap per crop at direct farmgate prices.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleRetailBuyerSubmit} className="space-y-4 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
+                            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                                    <span>Instant Household Access Active</span>
+                                </div>
+                                <p className="text-[11px] text-emerald-800">
+                                    No commercial paperwork needed. You can immediately purchase fresh vegetables & fruits delivered directly from verified farmers.
+                                </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-stone-700">Full Name</label>
+                                <input
+                                    type="text"
+                                    value={retailBuyerName}
+                                    onChange={(e) => setRetailBuyerName(e.target.value)}
+                                    placeholder="e.g. Aakash Sharma / Priya Patel"
+                                    required
+                                    className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-stone-700">Delivery Locality / City</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={retailDeliveryAddress}
+                                        onChange={(e) => setRetailDeliveryAddress(e.target.value)}
+                                        placeholder="e.g. Delhi NCR (Sector 62, Noida)"
+                                        className="w-full px-3 py-2 pl-9 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-[#0E3B2B]"
+                                    />
+                                    <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+                                </div>
+                                <span className="text-[10px] text-stone-400">Used to match with nearest local farm-gate reefer hubs</span>
+                            </div>
+
+                            {errorMessage && (
+                                <div className="p-2.5 bg-red-50 text-red-700 text-xs rounded-lg flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>{errorMessage}</span>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-3 bg-[#0E3B2B] hover:bg-[#144E39] text-white font-medium text-sm rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs"
+                            >
+                                {loading ? 'Opening Marketplace...' : 'Start Shopping Fresh Produce (Max 2 kg Cap)'}
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+
+                            <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                                <span>Need bulk procurement (50kg+) with GST invoice?</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setBuyerTier('WHOLESALE')}
+                                    className="text-blue-700 hover:text-blue-900 font-semibold hover:underline cursor-pointer"
+                                >
+                                    Switch to Commercial Wholesale →
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* Wholesale Commercial Buyer Onboarding (GSTIN / FSSAI / Escrow Mandate) */}
+                {step === 'kyc-onboarding' && selectedRole === 'BUYER' && buyerTier === 'WHOLESALE' && (
                     <div className="space-y-6">
                         <button
                             type="button"
@@ -1144,6 +1271,17 @@ export const AuthFlow: React.FC = () => {
                             <p className="text-xs text-stone-500">
                                 Institutional buyers require a verified 15-digit GSTIN, authorized signatory Aadhaar, and food business registration to purchase produce at direct farmgate rates and receive automated GST e-way bills.
                             </p>
+                        </div>
+
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900">
+                            <span>Buying for household kitchen? No GST required!</span>
+                            <button
+                                type="button"
+                                onClick={() => setBuyerTier('RETAIL')}
+                                className="text-amber-900 font-bold hover:underline cursor-pointer ml-2 shrink-0"
+                            >
+                                Switch to Household Buyer (No GST) →
+                            </button>
                         </div>
 
                         <form onSubmit={handleBuyerSubmitKyc} className="space-y-4 bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
