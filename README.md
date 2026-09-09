@@ -28,7 +28,7 @@ Traditional APMC mandis subject farmers to a multi-layered chain of village aggr
 | **Agmarknet & e-NAM Data Sync** | **Government Benchmarks** | Daily automated ingestion of wholesale arrival volumes and modal, minimum, and maximum rates from Ministry of Agriculture APMC mandis. |
 | **India Stack / DPI (Meon & DigiLocker)** | **Identity & DBT Banking** | Real-time Aadhaar e-KYC, PAN authentication, and Meon Penny Drop bank account validation for instant IMPS DBT payouts. |
 | **IoT Cold-Chain Telematics** | **Sensors & Hardware Simulation** | Real-time 2°–6°C chamber temperature monitoring, relative humidity tracking, GPS coordinates, and Amazon-style 4-digit OTP delivery security. |
-| **Driver Detention & Salvage Protocol** | **Logistics Risk Management** | GPS Geofence (<35m), 30-min grace countdown, automated ₹150/hr demurrage escrow debit, IVR sirens, and emergency APMC re-route salvage to Azadpur Mandi. |
+| **Driver Detention & Salvage Protocol** | **Logistics Risk Management** | GPS Geofence (<35m), dynamic grace countdown, Admin-governed demurrage (₹25/hr retail doorstep waiting vs ₹150/hr wholesale reefer), IVR siren, and emergency APMC / Darkstore salvage re-route. |
 | **Kisan Vaani Voice Assistant** | **Multilingual Speech AI** | Web Speech API speech-to-text allowing hands-free crop listing via voice in Hindi and regional dialects. |
 | **Cashfree Nodal Escrow** | **FinTech & Settlement** | RBI-compliant digital escrow holding buyer funds until OTP-authenticated physical delivery, preventing payment defaults. |
 | **Dynamic Freshness SLA & Cancellation** | **Marketplace Governance** | 12h/24h photo freshness enforcement with purchase locks and pre-shipment order cancellation with 100% automated escrow refund. |
@@ -50,13 +50,17 @@ Calculates true net take-home realization across regional mandis (**Agra APMC, A
 - **Anti-Gouging Ceiling**: Dynamically restricts price gouging during artificial shortages, protecting urban household consumers.
 - **Fair Band Indicator**: Real-time visual compliance feedback for farmers when listing produce.
 
-### C. Transporter & Driver Detention Protocol
-Protects delivery drivers and farmers from unresponsive buyers:
-1. **GPS Geo-Fence Arrival Proof**: Confirms vehicle position within <35m of destination.
-2. **30-Minute Grace Countdown Timer**: Automated detention clock.
-3. **₹150/hr Reefer Demurrage Surcharge**: Auto-debited from the buyer's locked escrow to cover idling refrigeration expenses.
-4. **Urgent Multi-Channel IVR & SMS Siren**: Automated telephone voice call and SMS dispatch to the buyer.
-5. **Perishable Emergency Salvage**: Re-routes truck to Azadpur Mandi if the buyer fails to respond, liquidating produce before rot occurs.
+### C. Transporter & Driver Detention Protocol (Admin Governed)
+Protects delivery drivers and farmers from unresponsive buyers without unfairly penalizing small households:
+1. **GPS Geo-Fence Arrival Proof**: Confirms vehicle arrival within <35m of destination.
+2. **Configurable Grace Countdown Timer**: Default 30-minute grace period before any detention charge applies (tunable 10–60m from Admin).
+3. **Tier-Specific Dynamic Waiting Surcharges**:
+   - **Household Retail (Normal Buyer)**: Fair micro-waiting fee of **₹25/hr** (configurable ₹10–₹100/hr) for hyperlocal EV/bike couriers delivering small 2 kg lots. Eliminates disproportionate commercial penalties on residential orders.
+   - **Commercial Wholesale (B2B)**: Cold-chain reefer demurrage of **₹150/hr** (configurable ₹50–₹500/hr) to compensate diesel refrigeration gen-set fuel and driver idle time.
+4. **Urgent Multi-Channel IVR & SMS Siren**: Automated telephone voice call and urgent delivery siren SMS sent directly to the buyer's phone.
+5. **Perishable Emergency Salvage Protocol**: 
+   - For B2B wholesale trucks: Auto-redirects to **Azadpur Mandi** at modal rates if buyer defaults (>90m).
+   - For household retail packs: Safely returns to the nearest **local cold-storage darkstore hub** with zero crop decay and 100% farmer payment secured from locked escrow.
 
 ### D. Dual-Tier Anti-Hoarding Marketplace
 - **Household Retail Tier**: Hard 2 kg cap per crop lot under the Essential Commodities Act to eliminate speculative hoarding, with flat ₹25 doorstep delivery.

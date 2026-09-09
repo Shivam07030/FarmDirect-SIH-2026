@@ -147,6 +147,10 @@ let dynamicMarketRules = {
     isPhotoSlaEnforced: true,
     allowPreShipmentCancellation: true,
     cancellationRefundPercent: 100,
+    wholesaleDemurragePerHour: 150,
+    retailDemurragePerHour: 25,
+    demurrageGraceMinutes: 30,
+    salvageRerouteTimeoutMinutes: 90,
     updatedAt: new Date().toISOString(),
 };
 
@@ -162,6 +166,10 @@ async function initMarketRulesTable() {
         wholesale_per_kg_freight DECIMAL(10,2) DEFAULT 2.20,
         is_rationing_active BOOLEAN DEFAULT TRUE,
         rationing_reason VARCHAR(255) DEFAULT 'Essential Commodities Price Stabilization Directive #FD-2026',
+        wholesale_demurrage_per_hour DECIMAL(10,2) DEFAULT 150.00,
+        retail_demurrage_per_hour DECIMAL(10,2) DEFAULT 25.00,
+        demurrage_grace_minutes INT DEFAULT 30,
+        salvage_reroute_timeout_minutes INT DEFAULT 90,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
@@ -169,8 +177,8 @@ async function initMarketRulesTable() {
         const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
         if (rows && rows.length === 0) {
             await pool.query(`
-        INSERT INTO market_rules (id, retail_max_qty_kg, wholesale_min_qty_kg, retail_delivery_fee, wholesale_base_freight, wholesale_per_kg_freight, is_rationing_active, rationing_reason)
-        VALUES ("RULE-001", 2.00, 25.00, 25.00, 150.00, 2.20, TRUE, "Essential Commodities Price Stabilization Directive #FD-2026")
+        INSERT INTO market_rules (id, retail_max_qty_kg, wholesale_min_qty_kg, retail_delivery_fee, wholesale_base_freight, wholesale_per_kg_freight, is_rationing_active, rationing_reason, wholesale_demurrage_per_hour, retail_demurrage_per_hour, demurrage_grace_minutes, salvage_reroute_timeout_minutes)
+        VALUES ("RULE-001", 2.00, 25.00, 25.00, 150.00, 2.20, TRUE, "Essential Commodities Price Stabilization Directive #FD-2026", 150.00, 25.00, 30, 90)
       `);
         } else if (rows && rows.length > 0) {
             const r = rows[0];
@@ -183,6 +191,10 @@ async function initMarketRulesTable() {
                 wholesalePerKgFreight: Number(r.wholesale_per_kg_freight),
                 isRationingActive: Boolean(r.is_rationing_active),
                 rationingReason: r.rationing_reason || 'Essential Commodities Price Stabilization Directive #FD-2026',
+                wholesaleDemurragePerHour: r.wholesale_demurrage_per_hour !== undefined && r.wholesale_demurrage_per_hour !== null ? Number(r.wholesale_demurrage_per_hour) : 150,
+                retailDemurragePerHour: r.retail_demurrage_per_hour !== undefined && r.retail_demurrage_per_hour !== null ? Number(r.retail_demurrage_per_hour) : 25,
+                demurrageGraceMinutes: r.demurrage_grace_minutes !== undefined && r.demurrage_grace_minutes !== null ? Number(r.demurrage_grace_minutes) : 30,
+                salvageRerouteTimeoutMinutes: r.salvage_reroute_timeout_minutes !== undefined && r.salvage_reroute_timeout_minutes !== null ? Number(r.salvage_reroute_timeout_minutes) : 90,
                 updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
             };
         }
@@ -294,6 +306,25 @@ async function initCancellationAndFreshnessColumns() {
 }
 initCancellationAndFreshnessColumns();
 
+async function initDemurrageColumns() {
+    try {
+        const [cols] = await pool.query(`SHOW COLUMNS FROM market_rules LIKE 'wholesale_demurrage_per_hour'`);
+        if (!cols || cols.length === 0) {
+            await pool.query(`
+        ALTER TABLE market_rules
+          ADD COLUMN wholesale_demurrage_per_hour DECIMAL(10,2) DEFAULT 150.00,
+          ADD COLUMN retail_demurrage_per_hour DECIMAL(10,2) DEFAULT 25.00,
+          ADD COLUMN demurrage_grace_minutes INT DEFAULT 30,
+          ADD COLUMN salvage_reroute_timeout_minutes INT DEFAULT 90
+      `);
+            console.log('Demurrage columns added to market_rules table in MySQL.');
+        }
+    } catch (e) {
+        console.warn('initDemurrageColumns note:', e.message);
+    }
+}
+initDemurrageColumns();
+
 app.get('/api/admin/market-rules', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM market_rules WHERE id = "RULE-001"');
@@ -308,6 +339,10 @@ app.get('/api/admin/market-rules', async (req, res) => {
                 wholesalePerKgFreight: Number(r.wholesale_per_kg_freight),
                 isRationingActive: Boolean(r.is_rationing_active),
                 rationingReason: r.rationing_reason,
+                wholesaleDemurragePerHour: r.wholesale_demurrage_per_hour !== undefined && r.wholesale_demurrage_per_hour !== null ? Number(r.wholesale_demurrage_per_hour) : dynamicMarketRules.wholesaleDemurragePerHour,
+                retailDemurragePerHour: r.retail_demurrage_per_hour !== undefined && r.retail_demurrage_per_hour !== null ? Number(r.retail_demurrage_per_hour) : dynamicMarketRules.retailDemurragePerHour,
+                demurrageGraceMinutes: r.demurrage_grace_minutes !== undefined && r.demurrage_grace_minutes !== null ? Number(r.demurrage_grace_minutes) : dynamicMarketRules.demurrageGraceMinutes,
+                salvageRerouteTimeoutMinutes: r.salvage_reroute_timeout_minutes !== undefined && r.salvage_reroute_timeout_minutes !== null ? Number(r.salvage_reroute_timeout_minutes) : dynamicMarketRules.salvageRerouteTimeoutMinutes,
                 updatedAt: r.updated_at,
             });
         }
@@ -330,6 +365,10 @@ app.put('/api/admin/market-rules', async (req, res) => {
             isPhotoSlaEnforced,
             allowPreShipmentCancellation,
             cancellationRefundPercent,
+            wholesaleDemurragePerHour,
+            retailDemurragePerHour,
+            demurrageGraceMinutes,
+            salvageRerouteTimeoutMinutes,
         } = req.body;
 
         if (retailMaxQtyKg !== undefined) dynamicMarketRules.retailMaxQtyKg = Number(retailMaxQtyKg);
@@ -344,6 +383,10 @@ app.put('/api/admin/market-rules', async (req, res) => {
         if (isPhotoSlaEnforced !== undefined) dynamicMarketRules.isPhotoSlaEnforced = Boolean(isPhotoSlaEnforced);
         if (allowPreShipmentCancellation !== undefined) dynamicMarketRules.allowPreShipmentCancellation = Boolean(allowPreShipmentCancellation);
         if (cancellationRefundPercent !== undefined) dynamicMarketRules.cancellationRefundPercent = Number(cancellationRefundPercent);
+        if (wholesaleDemurragePerHour !== undefined) dynamicMarketRules.wholesaleDemurragePerHour = Number(wholesaleDemurragePerHour);
+        if (retailDemurragePerHour !== undefined) dynamicMarketRules.retailDemurragePerHour = Number(retailDemurragePerHour);
+        if (demurrageGraceMinutes !== undefined) dynamicMarketRules.demurrageGraceMinutes = Number(demurrageGraceMinutes);
+        if (salvageRerouteTimeoutMinutes !== undefined) dynamicMarketRules.salvageRerouteTimeoutMinutes = Number(salvageRerouteTimeoutMinutes);
         dynamicMarketRules.updatedAt = new Date().toISOString();
 
         try {
@@ -355,7 +398,11 @@ app.put('/api/admin/market-rules', async (req, res) => {
           wholesale_base_freight = ?,
           wholesale_per_kg_freight = ?,
           is_rationing_active = ?,
-          rationing_reason = ?
+          rationing_reason = ?,
+          wholesale_demurrage_per_hour = ?,
+          retail_demurrage_per_hour = ?,
+          demurrage_grace_minutes = ?,
+          salvage_reroute_timeout_minutes = ?
         WHERE id = "RULE-001"`,
                 [
                     dynamicMarketRules.retailMaxQtyKg,
@@ -365,6 +412,10 @@ app.put('/api/admin/market-rules', async (req, res) => {
                     dynamicMarketRules.wholesalePerKgFreight,
                     dynamicMarketRules.isRationingActive,
                     dynamicMarketRules.rationingReason,
+                    dynamicMarketRules.wholesaleDemurragePerHour,
+                    dynamicMarketRules.retailDemurragePerHour,
+                    dynamicMarketRules.demurrageGraceMinutes,
+                    dynamicMarketRules.salvageRerouteTimeoutMinutes,
                 ]
             );
         } catch (e) { }

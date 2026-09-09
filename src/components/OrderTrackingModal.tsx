@@ -47,6 +47,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   isHindi = false,
 }) => {
   const { marketRules } = useApp();
+  const isRetailOrder = order.buyerTier === 'RETAIL' || (order.quantity <= (marketRules?.retailMaxQtyKg || 5));
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
@@ -343,14 +344,22 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                 </a>
               </div>
 
-              {/* Transporter Detention / Unresponsive Buyer Protocol */}
+              {/* Transporter Detention / Doorstep Waiting Protocol */}
               <button
                 type="button"
                 onClick={() => setIsDetentionOpen(true)}
-                className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                className={`w-full py-2 px-3 border rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                  isRetailOrder
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                }`}
               >
-                <Clock className="w-3.5 h-3.5 text-amber-700" />
-                <span>{isHindi ? 'ड्राइवर रुकावट / खरीदार प्रोटोकॉल' : 'Driver Detention Protocol (Buyer Unresponsive)'}</span>
+                <Clock className={`w-3.5 h-3.5 ${isRetailOrder ? 'text-emerald-700' : 'text-amber-700'}`} />
+                <span>
+                  {isHindi 
+                    ? (isRetailOrder ? 'डोरस्टेप प्रतीक्षा प्रोटोकॉल (₹25/घंटा)' : 'ड्राइवर रुकावट / रीफर डिमरेज')
+                    : (isRetailOrder ? 'Doorstep Waiting Protocol (Buyer Unresponsive)' : 'Driver Detention Protocol (Buyer Unresponsive)')}
+                </span>
               </button>
             </div>
 
@@ -692,11 +701,15 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
             <button
               type="button"
               onClick={() => setIsDetentionOpen(true)}
-              className="px-3 py-2 bg-white hover:bg-amber-50 text-amber-900 border border-stone-200 hover:border-amber-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-              title="Transporter/Driver Detention protocol if buyer gate is unresponsive"
+              className={`px-3 py-2 bg-white border text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                isRetailOrder
+                  ? 'hover:bg-emerald-50 text-emerald-900 hover:border-emerald-300 border-stone-200'
+                  : 'hover:bg-amber-50 text-amber-900 hover:border-amber-300 border-stone-200'
+              }`}
+              title={isRetailOrder ? 'Doorstep waiting protocol if household buyer is unresponsive' : 'Transporter/Driver Detention protocol if buyer gate is unresponsive'}
             >
-              <Clock className="w-3.5 h-3.5 text-amber-700" />
-              <span>{isHindi ? 'ड्राइवर रुकावट' : 'Driver Detention'}</span>
+              <Clock className={`w-3.5 h-3.5 ${isRetailOrder ? 'text-emerald-700' : 'text-amber-700'}`} />
+              <span>{isHindi ? (isRetailOrder ? 'डोरस्टेप प्रतीक्षा' : 'ड्राइवर रुकावट') : (isRetailOrder ? 'Doorstep Waiting' : 'Driver Detention')}</span>
             </button>
 
             {viewerRole === 'BUYER' && (

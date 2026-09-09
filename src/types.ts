@@ -207,6 +207,11 @@ export interface MarketRules {
   isPhotoSlaEnforced: boolean;           // Whether purchase locking is actively enforced by Admin
   allowPreShipmentCancellation: boolean; // Whether buyers & farmers can cancel orders before dispatch
   cancellationRefundPercent: number;     // Percentage of escrow refunded on pre-shipment cancel (default 100%)
+  // --- Dynamic Logistics Detention, Demurrage & Grace Governance (Governed by Admin) ---
+  wholesaleDemurragePerHour: number;     // Commercial Reefer Demurrage Surcharge per hour (default ₹150)
+  retailDemurragePerHour: number;        // Fair Retail Household Doorstep Waiting Surcharge per hour (default ₹25)
+  demurrageGraceMinutes: number;         // Free driver waiting grace period before demurrage applies (default 30 mins)
+  salvageRerouteTimeoutMinutes: number;  // Emergency APMC / darkstore redirect threshold (default 90 mins)
   updatedAt?: string;
 }
 

@@ -84,6 +84,7 @@ interface AppContextType {
     ) => Promise<boolean>;
     marketRules: MarketRules;
     updateMarketRules: (rules: Partial<MarketRules>) => Promise<boolean>;
+    applyDemurrageFee: (orderId: string, amount: number, isRetail: boolean) => void;
     tickets: SupportTicket[];
     fetchTickets: () => Promise<void>;
     createTicket: (data: {
@@ -200,6 +201,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isPhotoSlaEnforced: true,
             allowPreShipmentCancellation: true,
             cancellationRefundPercent: 100,
+            wholesaleDemurragePerHour: 150,
+            retailDemurragePerHour: 25,
+            demurrageGraceMinutes: 30,
+            salvageRerouteTimeoutMinutes: 90,
         };
     });
 
@@ -222,9 +227,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast(
             'success',
             'Market Policy Updated',
-            `Retail Cap: ${rules.retailMaxQtyKg ?? marketRules.retailMaxQtyKg} kg · Wholesale MOQ: ${rules.wholesaleMinQtyKg ?? marketRules.wholesaleMinQtyKg} kg`
+            `Retail Cap: ${rules.retailMaxQtyKg ?? marketRules.retailMaxQtyKg} kg · Demurrage: ₹${rules.retailDemurragePerHour ?? marketRules.retailDemurragePerHour}/h (Retail) / ₹${rules.wholesaleDemurragePerHour ?? marketRules.wholesaleDemurragePerHour}/h (Wholesale)`
         );
         return res.success;
+    };
+
+    const applyDemurrageFee = (orderId: string, amount: number, isRetail: boolean) => {
+        setBuyerEscrowBalance((prev) => Math.max(0, prev - amount));
+        const feeType = isRetail ? 'Retail Doorstep Waiting Fee' : 'Reefer Demurrage Surcharge';
+        showToast(
+            'warning',
+            `${feeType} Debited`,
+            `₹${amount} debited from locked escrow for Order #${orderId} to compensate driver/transporter waiting time.`
+        );
     };
 
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -873,6 +888,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 rateOrder,
                 marketRules,
                 updateMarketRules,
+                applyDemurrageFee,
                 tickets,
                 fetchTickets,
                 createTicket,

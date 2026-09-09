@@ -664,6 +664,15 @@ export async function fetchMarketRulesApi(): Promise<MarketRules> {
             wholesalePerKgFreight: 2.2,
             isRationingActive: true,
             rationingReason: 'Essential Commodities Price Stabilization Directive #FD-2026',
+            photoWarningHours: 12,
+            photoExpiryHours: 24,
+            isPhotoSlaEnforced: true,
+            allowPreShipmentCancellation: true,
+            cancellationRefundPercent: 100,
+            wholesaleDemurragePerHour: 150,
+            retailDemurragePerHour: 25,
+            demurrageGraceMinutes: 30,
+            salvageRerouteTimeoutMinutes: 90,
         };
     }
 }

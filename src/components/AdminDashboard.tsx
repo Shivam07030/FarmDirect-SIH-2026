@@ -80,6 +80,10 @@ export const AdminDashboard: React.FC = () => {
     isPhotoSlaEnforced: true,
     allowPreShipmentCancellation: true,
     cancellationRefundPercent: 100,
+    wholesaleDemurragePerHour: 150,
+    retailDemurragePerHour: 25,
+    demurrageGraceMinutes: 30,
+    salvageRerouteTimeoutMinutes: 90,
   });
   const [policySaving, setPolicySaving] = useState(false);
   const [policySuccess, setPolicySuccess] = useState(false);
@@ -99,6 +103,10 @@ export const AdminDashboard: React.FC = () => {
         isPhotoSlaEnforced: marketRules.isPhotoSlaEnforced ?? true,
         allowPreShipmentCancellation: marketRules.allowPreShipmentCancellation ?? true,
         cancellationRefundPercent: marketRules.cancellationRefundPercent ?? 100,
+        wholesaleDemurragePerHour: marketRules.wholesaleDemurragePerHour ?? 150,
+        retailDemurragePerHour: marketRules.retailDemurragePerHour ?? 25,
+        demurrageGraceMinutes: marketRules.demurrageGraceMinutes ?? 30,
+        salvageRerouteTimeoutMinutes: marketRules.salvageRerouteTimeoutMinutes ?? 90,
       });
     }
   }, [marketRules]);
@@ -586,7 +594,7 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <div className="text-xs text-amber-900">
-                  Retail Cap: <strong className="font-semibold">{marketRules?.retailMaxQtyKg || 2} kg</strong> per order · Wholesale MOQ: <strong className="font-semibold">{marketRules?.wholesaleMinQtyKg || 25} kg</strong> · Logistics: Flat ₹{marketRules?.retailDeliveryFee || 25} (retail) / ₹{marketRules?.wholesaleBaseFreight || 150} base (wholesale).
+                  Retail Cap: <strong className="font-semibold">{marketRules?.retailMaxQtyKg || 2} kg</strong> · Wholesale MOQ: <strong className="font-semibold">{marketRules?.wholesaleMinQtyKg || 25} kg</strong> · Demurrage: <strong className="font-semibold">₹{marketRules?.retailDemurragePerHour || 25}/h</strong> (Retail) / <strong className="font-semibold">₹{marketRules?.wholesaleDemurragePerHour || 150}/h</strong> (Wholesale Reefer) · Grace: <strong className="font-semibold">{marketRules?.demurrageGraceMinutes || 30}m</strong>.
                 </div>
               </div>
             </div>
@@ -596,7 +604,7 @@ export const AdminDashboard: React.FC = () => {
               onClick={() => setActiveTab('policy')}
               className="px-4 py-2.5 bg-amber-900 hover:bg-amber-950 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shrink-0 text-center"
             >
-              Configure Policy & Caps
+              Configure Policy →
             </button>
           </section>
 
@@ -1430,7 +1438,16 @@ export const AdminDashboard: React.FC = () => {
                       wholesaleBaseFreight: marketRules.wholesaleBaseFreight ?? 150,
                       wholesalePerKgFreight: marketRules.wholesalePerKgFreight ?? 2.2,
                       isRationingActive: marketRules.isRationingActive ?? true,
-                      rationingReason: marketRules.rationingReason || ''
+                      rationingReason: marketRules.rationingReason || '',
+                      photoWarningHours: marketRules.photoWarningHours ?? 12,
+                      photoExpiryHours: marketRules.photoExpiryHours ?? 24,
+                      isPhotoSlaEnforced: marketRules.isPhotoSlaEnforced ?? true,
+                      allowPreShipmentCancellation: marketRules.allowPreShipmentCancellation ?? true,
+                      cancellationRefundPercent: marketRules.cancellationRefundPercent ?? 100,
+                      wholesaleDemurragePerHour: marketRules.wholesaleDemurragePerHour ?? 150,
+                      retailDemurragePerHour: marketRules.retailDemurragePerHour ?? 25,
+                      demurrageGraceMinutes: marketRules.demurrageGraceMinutes ?? 30,
+                      salvageRerouteTimeoutMinutes: marketRules.salvageRerouteTimeoutMinutes ?? 90,
                     });
                   }
                 }}
@@ -1490,7 +1507,11 @@ export const AdminDashboard: React.FC = () => {
                   wholesaleBaseFreight: 120,
                   wholesalePerKgFreight: 2.0,
                   isRationingActive: true,
-                  rationingReason: 'Emergency Essential Commodities Act (EC Act) - Price Stabilization Directive'
+                  rationingReason: 'Emergency Essential Commodities Act (EC Act) - Price Stabilization Directive',
+                  wholesaleDemurragePerHour: 200,
+                  retailDemurragePerHour: 30,
+                  demurrageGraceMinutes: 20,
+                  salvageRerouteTimeoutMinutes: 60,
                 })}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   policyForm.retailMaxQtyKg === 1 && policyForm.isRationingActive
@@ -1505,7 +1526,7 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-500 line-clamp-2">
-                  High supply shock / price spike. Strict 1kg consumer quota with 20kg wholesale MOQ.
+                  High supply shock / price spike. Strict 1kg consumer quota, 20m grace, and ₹30/h retail / ₹200/h reefer demurrage.
                 </p>
               </button>
 
@@ -1519,7 +1540,11 @@ export const AdminDashboard: React.FC = () => {
                   wholesaleBaseFreight: 150,
                   wholesalePerKgFreight: 2.2,
                   isRationingActive: true,
-                  rationingReason: 'Fair Distribution Directive - 2kg Household Rationing & Anti-Hoarding Cap'
+                  rationingReason: 'Fair Distribution Directive - 2kg Household Rationing & Anti-Hoarding Cap',
+                  wholesaleDemurragePerHour: 150,
+                  retailDemurragePerHour: 25,
+                  demurrageGraceMinutes: 30,
+                  salvageRerouteTimeoutMinutes: 90,
                 })}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   policyForm.retailMaxQtyKg === 2 && policyForm.isRationingActive
@@ -1534,7 +1559,7 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-500 line-clamp-2">
-                  Default fair allocation policy. Prevents residential cornering while serving full households.
+                  Default fair allocation policy. Prevents residential hoarding. ₹25/h retail waiting, ₹150/h reefer demurrage, 30m grace.
                 </p>
               </button>
 
@@ -1548,7 +1573,11 @@ export const AdminDashboard: React.FC = () => {
                   wholesaleBaseFreight: 180,
                   wholesalePerKgFreight: 2.5,
                   isRationingActive: false,
-                  rationingReason: 'Peak Harvest Season - Relaxed Consumer Limits & Enhanced Bulk Supply'
+                  rationingReason: 'Peak Harvest Season - Relaxed Consumer Limits & Enhanced Bulk Supply',
+                  wholesaleDemurragePerHour: 120,
+                  retailDemurragePerHour: 20,
+                  demurrageGraceMinutes: 35,
+                  salvageRerouteTimeoutMinutes: 120,
                 })}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   policyForm.retailMaxQtyKg === 5 && !policyForm.isRationingActive
@@ -1563,7 +1592,7 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-500 line-clamp-2">
-                  Abundant farmgate arrivals. Higher 5kg household cap with 50kg wholesale minimum lot.
+                  Abundant farmgate arrivals. Higher 5kg cap, 35m grace, and ₹20/h retail / ₹120/h reefer demurrage.
                 </p>
               </button>
 
@@ -1577,7 +1606,11 @@ export const AdminDashboard: React.FC = () => {
                   wholesaleBaseFreight: 250,
                   wholesalePerKgFreight: 3.0,
                   isRationingActive: false,
-                  rationingReason: 'Open Unrestricted Trading - Free Market Corridor'
+                  rationingReason: 'Open Unrestricted Trading - Free Market Corridor',
+                  wholesaleDemurragePerHour: 100,
+                  retailDemurragePerHour: 20,
+                  demurrageGraceMinutes: 40,
+                  salvageRerouteTimeoutMinutes: 150,
                 })}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   policyForm.retailMaxQtyKg === 10
@@ -1592,7 +1625,7 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-500 line-clamp-2">
-                  Unrestricted open trading corridor. For high-volume suburban consumer clusters.
+                  Unrestricted open corridor. 40m grace, ₹20/h retail / ₹100/h reefer demurrage, 150m APMC salvage window.
                 </p>
               </button>
             </div>
@@ -2072,6 +2105,272 @@ export const AdminDashboard: React.FC = () => {
                     Once the order status advances to <span className="font-semibold text-blue-700">In Transit</span> or <span className="font-semibold text-emerald-700">Delivered</span>, cancellation is permanently locked to protect booked reefer freight and farmer harvest commitments.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Logistics Detention, Demurrage & Doorstep Waiting Governance */}
+          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-5 shadow-xs">
+            <div className="border-b border-stone-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-700" />
+                  Logistics Risk & Fair Surcharge Governance
+                </div>
+                <h3 className="text-base font-bold text-stone-900">
+                  Demurrage & Doorstep Waiting Charges Governance
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Configure fair waiting fees for household retail EV/bike deliveries vs. commercial cold-chain reefer truck delays. Protects driver time while ensuring 2 kg household buyers are never overcharged.
+                </p>
+              </div>
+
+              {/* Dynamic Demurrage Presets */}
+              <div className="flex items-center gap-1.5 self-start sm:self-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setPolicyForm({
+                    ...policyForm,
+                    retailDemurragePerHour: 20,
+                    wholesaleDemurragePerHour: 120,
+                    demurrageGraceMinutes: 30,
+                    salvageRerouteTimeoutMinutes: 90
+                  })}
+                  className="px-2.5 py-1 text-[11px] rounded-lg font-medium border border-stone-200 hover:bg-stone-50 text-stone-700 cursor-pointer"
+                >
+                  Subsidized (₹20/₹120)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPolicyForm({
+                    ...policyForm,
+                    retailDemurragePerHour: 25,
+                    wholesaleDemurragePerHour: 150,
+                    demurrageGraceMinutes: 30,
+                    salvageRerouteTimeoutMinutes: 90
+                  })}
+                  className="px-2.5 py-1 text-[11px] rounded-lg font-medium border border-emerald-300 bg-emerald-50 text-emerald-900 font-bold cursor-pointer"
+                >
+                  Standard (₹25/₹150)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPolicyForm({
+                    ...policyForm,
+                    retailDemurragePerHour: 35,
+                    wholesaleDemurragePerHour: 200,
+                    demurrageGraceMinutes: 20,
+                    salvageRerouteTimeoutMinutes: 60
+                  })}
+                  className="px-2.5 py-1 text-[11px] rounded-lg font-medium border border-stone-200 hover:bg-stone-50 text-stone-700 cursor-pointer"
+                >
+                  Strict Urban (₹35/₹200)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Part A: Direct Household Retail Waiting Fee */}
+              <div className="p-4 rounded-xl border border-emerald-200/90 bg-emerald-50/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-emerald-700" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+                      Household Retail Waiting Fee (Normal Buyer)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    ≤ 2 kg Orders (EV/Bike)
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <label className="font-semibold text-stone-700">
+                      Doorstep Waiting Surcharge Rate (Per Hour)
+                    </label>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 text-sm">
+                      ₹{policyForm.retailDemurragePerHour} / hr
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 text-xs font-bold">
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        min={5}
+                        max={100}
+                        step={5}
+                        value={policyForm.retailDemurragePerHour}
+                        onChange={(e) => setPolicyForm({
+                          ...policyForm,
+                          retailDemurragePerHour: Math.max(5, parseInt(e.target.value, 10) || 5)
+                        })}
+                        className="w-full pl-7 pr-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#0E3B2B]/20 bg-white"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {[15, 20, 25, 35].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setPolicyForm({ ...policyForm, retailDemurragePerHour: amt })}
+                          className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                            policyForm.retailDemurragePerHour === amt
+                              ? 'bg-[#0E3B2B] text-white border-[#0E3B2B]'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-500 leading-relaxed">
+                    Fair micro-charge designed for 2-wheeler/EV couriers waiting outside home/apartment doors. Never charges ₹150 on small 2 kg household lots.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-emerald-100 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Retail Escrow Simulation:
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    If customer delays handover by 45 mins (15m past {policyForm.demurrageGraceMinutes}m grace), auto-debits only <strong className="text-stone-900 font-bold">₹{(policyForm.retailDemurragePerHour * 0.25).toFixed(0)}</strong> from buyer escrow.
+                  </p>
+                </div>
+              </div>
+
+              {/* Part B: Commercial Reefer Demurrage Surcharge */}
+              <div className="p-4 rounded-xl border border-blue-200/90 bg-blue-50/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-blue-700" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-950">
+                      Commercial Reefer Demurrage (Wholesale B2B)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+                    Bulk Reefer Trucks
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <label className="font-semibold text-stone-700">
+                      Cold-Chain Reefer Detention Surcharge (Per Hour)
+                    </label>
+                    <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200 text-sm">
+                      ₹{policyForm.wholesaleDemurragePerHour} / hr
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400 text-xs font-bold">
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        min={30}
+                        max={500}
+                        step={10}
+                        value={policyForm.wholesaleDemurragePerHour}
+                        onChange={(e) => setPolicyForm({
+                          ...policyForm,
+                          wholesaleDemurragePerHour: Math.max(30, parseInt(e.target.value, 10) || 30)
+                        })}
+                        className="w-full pl-7 pr-3 py-2 border border-stone-200 rounded-xl text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 bg-white"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {[100, 120, 150, 200].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setPolicyForm({ ...policyForm, wholesaleDemurragePerHour: amt })}
+                          className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                            policyForm.wholesaleDemurragePerHour === amt
+                              ? 'bg-blue-800 text-white border-blue-800'
+                              : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          ₹{amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-500 leading-relaxed">
+                    Compensates refrigerated reefer diesel gen-set fuel consumption, heavy truck turnaround loss, and driver waiting wages.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-blue-100 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                    Wholesale Escrow Simulation:
+                  </div>
+                  <p className="text-[11px] text-stone-600 leading-relaxed">
+                    For a commercial warehouse detention of 90 mins past grace, auto-debits <strong className="text-stone-900 font-bold">₹{(policyForm.wholesaleDemurragePerHour * 1.5).toFixed(0)}</strong> from buyer escrow.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Part C: Detention Grace Window & Salvage Redirect Sliders */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-stone-200 bg-stone-50/70">
+              {/* Grace Period */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    Driver Unloading Grace Window
+                  </span>
+                  <span className="font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    {policyForm.demurrageGraceMinutes} Minutes Free
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={60}
+                  step={5}
+                  value={policyForm.demurrageGraceMinutes}
+                  onChange={(e) => setPolicyForm({ ...policyForm, demurrageGraceMinutes: Number(e.target.value) })}
+                  className="w-full h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                />
+                <p className="text-[11px] text-stone-500">
+                  Buffer time after GPS arrival before demurrage / waiting surcharges begin to accrue.
+                </p>
+              </div>
+
+              {/* Salvage Redirect Timeout */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-purple-600" />
+                    Emergency Salvage / Mandi Reroute
+                  </span>
+                  <span className="font-mono font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    {policyForm.salvageRerouteTimeoutMinutes} Minutes Max
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={45}
+                  max={180}
+                  step={15}
+                  value={policyForm.salvageRerouteTimeoutMinutes}
+                  onChange={(e) => setPolicyForm({ ...policyForm, salvageRerouteTimeoutMinutes: Number(e.target.value) })}
+                  className="w-full h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                />
+                <p className="text-[11px] text-stone-500">
+                  If buyer fails to collect within {policyForm.salvageRerouteTimeoutMinutes}m, cargo automatically re-routes to nearest APMC Mandi / Darkstore Hub with zero spoilage.
+                </p>
               </div>
             </div>
           </div>
