@@ -20,10 +20,11 @@ import {
   Star,
   QrCode
 } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, TicketCategory } from '../types';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
+import { DriverDetentionModal } from './DriverDetentionModal';
 import { releaseCashfreePayoutApi } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { OrderCancelModal } from './OrderCancelModal';
@@ -49,9 +50,21 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
+  const [isDetentionOpen, setIsDetentionOpen] = useState(false);
+  const [disputeDefaults, setDisputeDefaults] = useState<{
+    orderId?: string;
+    subject?: string;
+    category?: TicketCategory;
+  }>({});
   const [isRatingOpen, setIsRatingOpen] = useState(false);
   const [isPassportOpen, setIsPassportOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  const handleOpenDisputeFromDetention = (ordId: string, subj: string, cat: TicketCategory) => {
+    setDisputeDefaults({ orderId: ordId, subject: subj, category: cat });
+    setIsDetentionOpen(false);
+    setIsGrievanceOpen(true);
+  };
 
   if (!isOpen || !order) return null;
 
@@ -329,6 +342,16 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
                   <span>{isHindi ? 'मैसेज' : 'SMS'}</span>
                 </a>
               </div>
+
+              {/* Transporter Detention / Unresponsive Buyer Protocol */}
+              <button
+                type="button"
+                onClick={() => setIsDetentionOpen(true)}
+                className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-700" />
+                <span>{isHindi ? 'ड्राइवर रुकावट / खरीदार प्रोटोकॉल' : 'Driver Detention Protocol (Buyer Unresponsive)'}</span>
+              </button>
             </div>
 
             {/* Cold-Chain IoT Chamber Telematics */}
@@ -666,6 +689,16 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
               <span>{isHindi ? 'शिकायत / विवाद' : 'Raise Dispute'}</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => setIsDetentionOpen(true)}
+              className="px-3 py-2 bg-white hover:bg-amber-50 text-amber-900 border border-stone-200 hover:border-amber-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              title="Transporter/Driver Detention protocol if buyer gate is unresponsive"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span>{isHindi ? 'ड्राइवर रुकावट' : 'Driver Detention'}</span>
+            </button>
+
             {viewerRole === 'BUYER' && (
               <button
                 type="button"
@@ -705,14 +738,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
       {/* Embedded Grievance / Dispute Modal */}
       <GrievanceModal
         isOpen={isGrievanceOpen}
-        onClose={() => setIsGrievanceOpen(false)}
-        defaultOrderId={order.id}
-        defaultCategory={temperature > 7.0 ? 'COLD_CHAIN_TEMP_BREACH' : 'DAMAGED_PRODUCE'}
+        onClose={() => {
+          setIsGrievanceOpen(false);
+          setDisputeDefaults({});
+        }}
+        defaultOrderId={disputeDefaults.orderId || order.id}
+        defaultCategory={disputeDefaults.category || (temperature > 7.0 ? 'COLD_CHAIN_TEMP_BREACH' : 'DAMAGED_PRODUCE')}
         defaultSubject={
-          temperature > 7.0
+          disputeDefaults.subject || (temperature > 7.0
             ? `Cold-Chain Temperature Warning (+${temperature}°C recorded on ${vehicleNo})`
-            : `Order #${order.id} Quality & Delivery Issue`
+            : `Order #${order.id} Quality & Delivery Issue`)
         }
+      />
+
+      {/* Embedded Driver Detention Protocol Modal */}
+      <DriverDetentionModal
+        isOpen={isDetentionOpen}
+        onClose={() => setIsDetentionOpen(false)}
+        order={order}
+        isHindi={isHindi}
+        onOpenDispute={handleOpenDisputeFromDetention}
       />
 
       {/* Embedded Rating Modal */}

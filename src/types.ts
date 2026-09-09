@@ -219,6 +219,7 @@ export type TicketCategory =
   | 'WEIGHMENT_DISCREPANCY'
   | 'MIDDLEMAN_SUSPICION'
   | 'DELIVERY_DELAY'
+  | 'BUYER_UNRESPONSIVE'
   | 'OTHER';
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

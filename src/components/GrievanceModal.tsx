@@ -46,7 +46,7 @@ export const GrievanceModal: React.FC<GrievanceModalProps> = ({
       setSubject(defaultSubject);
       setCategory(defaultCategory);
       setOrderId(defaultOrderId);
-      setPriority(defaultCategory === 'COLD_CHAIN_TEMP_BREACH' ? 'HIGH' : 'MEDIUM');
+      setPriority(defaultCategory === 'COLD_CHAIN_TEMP_BREACH' || defaultCategory === 'BUYER_UNRESPONSIVE' ? 'HIGH' : 'MEDIUM');
       setDescription('');
       setCreatedTicketNumber(null);
     }
@@ -168,6 +168,7 @@ export const GrievanceModal: React.FC<GrievanceModalProps> = ({
                 >
                   <option value="DAMAGED_PRODUCE">Damaged / Bruised Produce</option>
                   <option value="COLD_CHAIN_TEMP_BREACH">Cold-Chain Temp Breach (&gt;6°C)</option>
+                  <option value="BUYER_UNRESPONSIVE">Buyer Unresponsive / Gate Detention (&gt;30m)</option>
                   <option value="PAYMENT_ESCROW">Payment / Escrow Payout Delay</option>
                   <option value="WEIGHMENT_DISCREPANCY">Weighment Discrepancy</option>
                   <option value="MIDDLEMAN_SUSPICION">Middleman Impersonation</option>
