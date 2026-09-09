@@ -30,7 +30,9 @@ import { RatingModal } from './RatingModal';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { OrderCancelModal } from './OrderCancelModal';
 import { MandiArbitrageMatrix } from './MandiArbitrageMatrix';
+import { CashfreeEscrowModal } from './CashfreeEscrowModal';
 import { getProduceFreshnessInfo } from '../utils/freshnessSla';
+import { PlusCircle } from 'lucide-react';
 
 export const BuyerMarketplace: React.FC = () => {
   const { 
@@ -45,6 +47,8 @@ export const BuyerMarketplace: React.FC = () => {
     setActiveTab,
     buyerTier,
     setBuyerTier,
+    buyerEscrowBalance,
+    addFundsToEscrow,
     language 
   } = useApp();
 
@@ -66,6 +70,10 @@ export const BuyerMarketplace: React.FC = () => {
   const [selectedCancelOrder, setSelectedCancelOrder] = useState<Order | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [photoRequestNotice, setPhotoRequestNotice] = useState<string | null>(null);
+
+  // Escrow payment & vault modal state
+  const [isEscrowModalOpen, setIsEscrowModalOpen] = useState(false);
+  const [escrowModalMode, setEscrowModalMode] = useState<'CHECKOUT' | 'TOPUP'>('CHECKOUT');
 
   // Purchase modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -124,7 +132,7 @@ export const BuyerMarketplace: React.FC = () => {
     setOrderSuccess(null);
   };
 
-  const handleConfirmPurchase = (e: React.FormEvent) => {
+  const handleOpenEscrowCheckout = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
 
@@ -138,6 +146,17 @@ export const BuyerMarketplace: React.FC = () => {
       return;
     }
 
+    setEscrowModalMode('CHECKOUT');
+    setIsEscrowModalOpen(true);
+  };
+
+  const handleConfirmEscrowPayment = (paymentDetails: {
+    method: 'UPI' | 'NETBANKING' | 'ESCROW_VAULT';
+    escrowId: string;
+    cfPaymentId: string;
+  }) => {
+    if (!selectedProduct) return;
+
     const effectiveBuyerName = buyerTier === 'RETAIL'
       ? (currentUser?.name && currentUser.name !== 'Farmer' ? currentUser.name : 'Direct Consumer')
       : (currentUser?.name && currentUser.name !== 'Farmer' ? currentUser.name : buyerName);
@@ -150,9 +169,11 @@ export const BuyerMarketplace: React.FC = () => {
       buyerTier: buyerTier,
     });
 
+    setIsEscrowModalOpen(false);
+    setSelectedProduct(null);
+
     if (result.success && result.order) {
       setOrderSuccess(result.order);
-      setSelectedProduct(null);
       setSelectedTrackingOrder(result.order);
       setIsTrackModalOpen(true);
     }
@@ -234,6 +255,24 @@ export const BuyerMarketplace: React.FC = () => {
                 {myOrders.length} {isHindi ? 'कुल ऑर्डर' : 'Total Orders'}
               </span>
             </div>
+          </div>
+
+          {/* Escrow Vault Status Bar in Orders Tab */}
+          <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-emerald-950">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+              <span><strong>Cashfree Escrow Vault:</strong> ₹{buyerEscrowBalance.toLocaleString('en-IN')} available float</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEscrowModalMode('TOPUP');
+                setIsEscrowModalOpen(true);
+              }}
+              className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs"
+            >
+              + Add Funds
+            </button>
           </div>
 
           {/* Orders Search & Status Filters */}
@@ -450,6 +489,44 @@ export const BuyerMarketplace: React.FC = () => {
         /* 2. MARKETPLACE VIEW FOR BUYER */
         <div className="space-y-6">
           
+          {/* Cashfree Smart Escrow Vault & Add Funds Header Bar */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0E3B2B] via-[#144E39] to-[#0A291E] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-400/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0 shadow-xs">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-white">
+                    {isHindi ? 'कैशफ्री स्मार्ट एस्क्रो वॉल्ट (RBI नोडल)' : 'Cashfree Smart Escrow Vault (RBI Nodal)'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-mono border border-emerald-400/30">
+                    Active
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-100/80 mt-0.5">
+                  {isHindi 
+                    ? `उपलब्ध एस्क्रो बैलेंस: ₹${buyerEscrowBalance.toLocaleString('en-IN')} · डिलीवरी ओटीपी के बाद ही किसान को भुगतान`
+                    : `Available Escrow Balance: ₹${buyerEscrowBalance.toLocaleString('en-IN')} · Payout secured until OTP delivery`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setEscrowModalMode('TOPUP');
+                  setIsEscrowModalOpen(true);
+                }}
+                className="px-3.5 py-2 bg-emerald-400 hover:bg-emerald-300 text-stone-950 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-stone-950" />
+                <span>{isHindi ? '+ एस्क्रो में राशि जोड़ें' : '+ Add Funds to Escrow'}</span>
+              </button>
+            </div>
+          </div>
+
           {/* 2-Section Dual-Tier Marketplace Switcher */}
           <div className="bg-stone-50 p-2 rounded-2xl border border-stone-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
@@ -969,7 +1046,7 @@ export const BuyerMarketplace: React.FC = () => {
               <span>{isHindi ? 'फार्म-टू-फोर्क डिजिटल ट्रस्ट पासपोर्ट व कोल्ड-चेन देखें' : 'Inspect Farm-to-Fork Digital Trust Passport & 4°C Log'}</span>
             </button>
 
-            <form onSubmit={handleConfirmPurchase} className="space-y-4">
+            <form onSubmit={handleOpenEscrowCheckout} className="space-y-4">
               <div>
                 <div className="text-xs text-stone-500">Selected Crop</div>
                 <div className="text-base font-semibold text-stone-900">{selectedProduct.name}</div>
@@ -1221,6 +1298,25 @@ export const BuyerMarketplace: React.FC = () => {
           setSelectedCancelOrder(null);
         }}
         order={selectedCancelOrder}
+      />
+
+      {/* Cashfree Smart Escrow Deposit & Mandate Modal */}
+      <CashfreeEscrowModal
+        isOpen={isEscrowModalOpen}
+        onClose={() => setIsEscrowModalOpen(false)}
+        mode={escrowModalMode}
+        product={selectedProduct}
+        quantity={purchaseQuantity}
+        produceAmount={selectedProduct ? Math.round(purchaseQuantity * selectedProduct.pricePerKg * 100) / 100 : 0}
+        logisticsFee={buyerTier === 'RETAIL' ? marketRules.retailDeliveryFee : Math.max(marketRules.wholesaleBaseFreight, Math.round(purchaseQuantity * marketRules.wholesalePerKgFreight))}
+        totalAmount={
+          (selectedProduct ? Math.round(purchaseQuantity * selectedProduct.pricePerKg * 100) / 100 : 0) +
+          (buyerTier === 'RETAIL' ? marketRules.retailDeliveryFee : Math.max(marketRules.wholesaleBaseFreight, Math.round(purchaseQuantity * marketRules.wholesalePerKgFreight)))
+        }
+        buyerEscrowBalance={buyerEscrowBalance}
+        isHindi={isHindi}
+        onConfirmEscrowPayment={handleConfirmEscrowPayment}
+        onAddFunds={(amt, method) => addFundsToEscrow(amt, method)}
       />
 
     </div>

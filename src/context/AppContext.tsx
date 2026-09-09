@@ -57,6 +57,8 @@ interface AppContextType {
     orders: Order[];
     farmerName: string;
     buyerName: string;
+    buyerEscrowBalance: number;
+    addFundsToEscrow: (amount: number, method?: string) => void;
     toast: ToastMessage | null;
     showToast: (type: 'success' | 'info' | 'warning' | 'error', title: string, message: string) => void;
     clearToast: () => void;
@@ -160,6 +162,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const [activeTab, setActiveTab] = useState<string>('home');
+
+    const [buyerEscrowBalance, setBuyerEscrowBalance] = useState<number>(() => {
+        const saved = localStorage.getItem('farmdirect_escrow_bal_v1');
+        return saved ? Number(saved) : 25000;
+    });
+
+    const addFundsToEscrow = (amount: number, method: string = 'UPI') => {
+        setBuyerEscrowBalance((prev) => {
+            const next = prev + amount;
+            localStorage.setItem('farmdirect_escrow_bal_v1', String(next));
+            return next;
+        });
+        showToast(
+            'success',
+            'Escrow Vault Funded',
+            `₹${amount.toLocaleString('en-IN')} deposited into Cashfree Nodal Escrow via ${method}. New Balance: ₹${(buyerEscrowBalance + amount).toLocaleString('en-IN')}`
+        );
+    };
 
     const [language, setLanguageState] = useState<'hi' | 'en'>(() => {
         const saved = localStorage.getItem(STORAGE_LANG_KEY);
@@ -633,6 +653,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             )
         );
 
+        setBuyerEscrowBalance((prev) => {
+            const next = Math.max(0, prev - finalAmount);
+            localStorage.setItem('farmdirect_escrow_bal_v1', String(next));
+            return next;
+        });
+
         setOrders((prev) => [newOrder, ...prev]);
         submitOrder(params).catch(() => { });
 
@@ -692,6 +718,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
 
         // 2. Update order to Cancelled and refund escrow
+        setBuyerEscrowBalance((prev) => {
+            const next = prev + order.finalAmount;
+            localStorage.setItem('farmdirect_escrow_bal_v1', String(next));
+            return next;
+        });
+
         setOrders((prev) =>
             prev.map((o) =>
                 o.id === orderId
@@ -828,6 +860,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 orders,
                 farmerName,
                 buyerName,
+                buyerEscrowBalance,
+                addFundsToEscrow,
                 toast,
                 showToast,
                 clearToast,
