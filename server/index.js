@@ -415,14 +415,25 @@ app.post('/api/auth/verify-gst', async (req, res) => {
         const legalName = legalNames[rawGstin] || `${pan.slice(0, 5)} Wholesale Traders & Retailers Pvt Ltd`;
 
         res.json({
+            success: true,
             valid: true,
             gstin: rawGstin,
             pan,
             state,
             legalName,
+            legalBusinessName: legalName,
             status: 'ACTIVE_REGISTERED',
             complianceScore: '98%',
             message: 'GSTIN successfully verified with GST Network (GSTN).',
+            data: {
+                gstin: rawGstin,
+                legalBusinessName: legalName,
+                legalName,
+                pan,
+                state,
+                status: 'ACTIVE_REGISTERED',
+                taxpayerType: 'Regular Commercial Wholesaler'
+            }
         });
     } catch (err) {
         res.status(500).json({ valid: false, error: 'GST verification service unavailable' });
