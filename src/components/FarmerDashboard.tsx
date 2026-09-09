@@ -1248,6 +1248,12 @@ export const FarmerDashboard: React.FC = () => {
 
       {activeTab === 'market' && (
         <div className="space-y-6">
+          {/* Agmarknet & e-NAM Live Mandi Arbitrage Matrix */}
+          <MandiArbitrageMatrix 
+            onListCropAtPrice={handleListFromArbitrage} 
+            isHindi={isHindi} 
+          />
+
           <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
             <h1 className="text-xl sm:text-2xl font-semibold text-stone-900 font-serif">
               {isHindi ? 'मंडी भाव और तुलना' : 'Market Prices & Transparency'}

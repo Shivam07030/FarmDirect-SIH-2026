@@ -21,13 +21,15 @@ import {
   RotateCcw,
   QrCode,
   Award,
-  Clock
+  Clock,
+  TrendingUp
 } from 'lucide-react';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { GrievanceModal } from './GrievanceModal';
 import { RatingModal } from './RatingModal';
 import { FarmToForkPassportModal } from './FarmToForkPassportModal';
 import { OrderCancelModal } from './OrderCancelModal';
+import { MandiArbitrageMatrix } from './MandiArbitrageMatrix';
 import { getProduceFreshnessInfo } from '../utils/freshnessSla';
 
 export const BuyerMarketplace: React.FC = () => {
@@ -70,6 +72,7 @@ export const BuyerMarketplace: React.FC = () => {
   const [purchaseQuantity, setPurchaseQuantity] = useState<number>(buyerTier === 'RETAIL' ? Math.min(2, marketRules.retailMaxQtyKg) : marketRules.wholesaleMinQtyKg);
   const [deliveryAddress, setDeliveryAddress] = useState('Delhi (Azadpur Terminal Hub)');
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
+  const [showArbitrageMatrix, setShowArbitrageMatrix] = useState(false);
 
   // Tracking modal state
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<Order | null>(null);
@@ -567,6 +570,44 @@ export const BuyerMarketplace: React.FC = () => {
                 <Truck className="w-4 h-4 text-blue-700" />
                 <span>Wholesale B2B Terminal · Bulk Freight</span>
               </div>
+            </div>
+          )}
+
+          {/* Collapsible APMC Mandi Benchmark Matrix Toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-stone-50 rounded-2xl border border-stone-200">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-4 h-4 text-emerald-700" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-stone-900">
+                  {isHindi ? 'Agmarknet व e-NAM मंडी आर्बिट्राज बेंचमार्क' : 'Agmarknet & e-NAM Mandi Arbitrage Benchmarks'}
+                </div>
+                <div className="text-[11px] text-stone-500">
+                  {isHindi 
+                    ? 'पारंपरिक मंडियों (आगरा, आज़ादपुर, मथुरा, जयपुर) से तुलना व बिचौलिया कटौती' 
+                    : 'Wholesale comparison across regional mandis after 6% arhatiya & APMC cess'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowArbitrageMatrix(!showArbitrageMatrix)}
+              className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-stone-700 hover:text-emerald-900 border border-stone-200 hover:border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs self-start sm:self-auto"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-700" />
+              <span>
+                {showArbitrageMatrix 
+                  ? (isHindi ? 'मैट्रिक्स छिपाएं' : 'Hide Mandi Matrix') 
+                  : (isHindi ? 'लाइव मंडी मैट्रिक्स देखें' : 'View Mandi Matrix')}
+              </span>
+            </button>
+          </div>
+
+          {showArbitrageMatrix && (
+            <div className="animate-fade-in">
+              <MandiArbitrageMatrix isHindi={isHindi} />
             </div>
           )}
 
