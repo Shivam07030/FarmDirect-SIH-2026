@@ -22,7 +22,7 @@ import { useApp } from '../context/AppContext';
 interface DriverDetentionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order: Order;
+  order: Order | null;
   isHindi?: boolean;
   onOpenDispute?: (orderId: string, subject: string, category: TicketCategory) => void;
 }
@@ -39,7 +39,7 @@ export const DriverDetentionModal: React.FC<DriverDetentionModalProps> = ({
   const [demurrageApplied, setDemurrageApplied] = useState(false);
   const [salvageInitiated, setSalvageInitiated] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !order) return null;
 
   // Determine buyer tier dynamically (Retail household 2kg vs Wholesale commercial batch)
   const isRetail = order.buyerTier === 'RETAIL' || (order.quantity <= (marketRules?.retailMaxQtyKg || 5));

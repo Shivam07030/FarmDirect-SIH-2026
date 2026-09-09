@@ -47,7 +47,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
   isHindi = false,
 }) => {
   const { marketRules } = useApp();
-  const isRetailOrder = order.buyerTier === 'RETAIL' || (order.quantity <= (marketRules?.retailMaxQtyKg || 5));
+  const isRetailOrder = order ? (order.buyerTier === 'RETAIL' || (order.quantity <= (marketRules?.retailMaxQtyKg || 5))) : false;
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [selectedSimStage, setSelectedSimStage] = useState<OrderStatus | null>(null);
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
